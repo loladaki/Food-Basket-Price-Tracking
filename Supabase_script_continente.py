@@ -88,7 +88,8 @@ for produto, link in produtos.items():
         "preco": preco,
         "pvpr": pvpr,
         "desconto_percent": desconto_percent,
-        "desconto_euros": desconto_euros
+        "desconto_euros": desconto_euros,
+        "supermercado": "continente"
     })
 
     total_cabaz += preco
@@ -133,10 +134,13 @@ cursor.execute("DELETE FROM cabaz WHERE data = %s", (hoje,))
 
 for item in dados:
     cursor.execute("""
-    INSERT INTO cabaz (data, produto, preco, pvpr, desconto_percent, desconto_euros)
-    VALUES (%s, %s, %s, %s, %s, %s)
+    INSERT INTO cabaz_supabase 
+    (data, supermercado, produto, preco, pvpr, desconto_percent, desconto_euros)
+    VALUES (%s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (data, produto, supermercado) DO NOTHING
     """, (
         hoje,
+        item["supermercado"],
         item["produto"],
         item["preco"],
         item["pvpr"],
