@@ -1,17 +1,13 @@
 import requests
 from bs4 import BeautifulSoup
-import json
+import re
 import psycopg2
 import os
 from datetime import date
 
-# Pega a DATABASE_URL do ambiente
-DATABASE_URL = os.getenv("DATABASE_URL")
-
 # ==============================
-# CONFIG
+# 1️⃣ PRODUTOS
 # ==============================
-
 produtos = {
     "arroz": "https://www.continente.pt/produto/arroz-carolino-continente-continente-4738050.html",
     "massa": "https://www.continente.pt/produto/massa-esparguete-pack-poupanca-continente-continente-5253941.html",
@@ -35,92 +31,90 @@ produtos = {
     "detergente": "https://www.continente.pt/produto/detergente-maquina-roupa-liquido-sabao-natural-continente-continente-7718451.html"
 }
 
-HEADERS = {"User-Agent": "Mozilla/5.0"}
-
 # ==============================
-# FUNÇÃO SCRAPING
+# 2️⃣ FUNÇÃO DE EXTRAÇÃO
 # ==============================
-
-def get_product_info(url):
-    response = requests.get(url, headers=HEADERS)
+def get_price_info(url):
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(url, headers=headers)
     soup = BeautifulSoup(response.text, "html.parser")
+    texto = soup.get_text()
 
-    scripts = soup.find_all("script", type="application/ld+json")
+    preco = None
+    pvpr = None
 
-    for script in scripts:
-        try:
-            data = json.loads(script.string)
+    # preço atual
+    match = re.search(r"\n\s*(\d+,\d+)\s*€", texto)
+    if match:
+        preco = float(match.group(1).replace(",", "."))
 
-            if "offers" in data:
-                nome = data["name"]
-                preco = float(data["offers"]["price"])
+    # PVPR
+    match = re.search(r"PVPR\s*(\d+,\d+)", texto)
+    if match:
+        pvpr = float(match.group(1).replace(",", "."))
 
-                pvpr = None
-                if "priceSpecification" in data["offers"]:
-                    ref = data["offers"]["priceSpecification"].get("referencePrice")
-                    if ref:
-                        pvpr = float(ref)
+    # calcular descontos
+    desconto_percent = None
+    desconto_euros = None
+    if pvpr is not None and preco is not None and pvpr > preco:
+        desconto_euros = round(pvpr - preco, 2)
+        desconto_percent = round((desconto_euros / pvpr) * 100, 2)
 
-                desconto_percent = 0
-                desconto_euros = 0
-
-                if pvpr and preco < pvpr:
-                    desconto_percent = round((pvpr - preco) / pvpr * 100, 2)
-                    desconto_euros = round(pvpr - preco, 2)
-
-                return nome, preco, pvpr, desconto_percent, desconto_euros
-
-        except:
-            continue
-
-    return None, None, None, None, None
-
+    return preco, pvpr, desconto_percent, desconto_euros
 
 # ==============================
-# EXECUÇÃO
+# 3️⃣ RECOLHER DADOS
 # ==============================
-
 dados = []
-total = 0
-total_sem_desc = 0
-
-print("\n--- CABAZ ---")
+total_cabaz = 0
+total_sem_promo = 0
 
 for produto, url in produtos.items():
-    nome, preco, pvpr, desconto_percent, desconto_euros = get_product_info(url)
+    preco, pvpr, desconto_percent, desconto_euros = get_price_info(url)
 
-    if preco:
-        print(f"{produto} - {preco} €")
+    if preco is None:
+        print(f"Atenção: preço não encontrado para {produto}")
+        continue
 
-        total += preco
-        if pvpr:
-            total_sem_desc += pvpr
-        else:
-            total_sem_desc += preco
+    dados.append({
+        "produto": produto,
+        "preco": preco,
+        "pvpr": pvpr,
+        "desconto_percent": desconto_percent,
+        "desconto_euros": desconto_euros,
+        "supermercado": "continente"
+    })
 
-        dados.append({
-            "produto": produto,
-            "preco": preco,
-            "pvpr": pvpr,
-            "desconto_percent": desconto_percent,
-            "desconto_euros": desconto_euros,
-            "supermercado": "continente"
-        })
-
-print("\nTOTAL:", round(total, 2), "€")
+    total_cabaz += preco
+    total_sem_promo += pvpr if pvpr is not None else preco
 
 # ==============================
-# LIGAR AO SUPABASE
+# 4️⃣ MOSTRAR RESULTADOS
 # ==============================
+print("\n--- CABAZ ---")
+for item in dados:
+    print(f"{item['produto']} - {item['preco']} €")
+    if item["pvpr"] is not None:
+        print(f"PVPR: {item['pvpr']} €")
+        print(f"Desconto: {item['desconto_percent']} %")
+    print("------")
 
+print(f"TOTAL: {round(total_cabaz,2)} €")
+print(f"SEM PROMO: {round(total_sem_promo,2)} €")
+print(f"POUPANÇA: {round(total_sem_promo - total_cabaz,2)} €")
+
+# ==============================
+# 5️⃣ GUARDAR NA SUPABASE
+# ==============================
+DATABASE_URL = os.getenv("DATABASE_URL")
 conn = psycopg2.connect(DATABASE_URL)
 cursor = conn.cursor()
 
 hoje = date.today()
 
-# apagar dados do dia (continente)
+# apagar dados do mesmo dia para o mesmo supermercado
 cursor.execute("""
-DELETE FROM cabaz_supabase 
+DELETE FROM cabaz_supabase
 WHERE data = %s AND supermercado = %s
 """, (hoje, "continente"))
 
@@ -144,4 +138,4 @@ for item in dados:
 conn.commit()
 conn.close()
 
-print("Dados guardados com sucesso!")
+print("\nDados guardados com sucesso!")
