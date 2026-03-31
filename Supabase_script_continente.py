@@ -33,7 +33,7 @@ produtos = {
 }
 
 
-# FUNÇÃO DE EXTRAÇÃO
+# EXTRAÇÃO DE PREÇOS
 
 def get_price_info(url):
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -55,7 +55,7 @@ def get_price_info(url):
         if match:
             preco = float(match.group(1).replace(",", "."))
 
-    # MÉTODO 1: PREÇO RISCADO
+    # MÉTODO 1: PREÇO RISCADO (PROMOÇÃO)
     old_elem = soup.select_one(".strike-through .pwc-tile--price-value")
     if old_elem:
         texto_old = old_elem.get_text(strip=True)
@@ -63,7 +63,7 @@ def get_price_info(url):
         if match:
             pvpr = float(match.group(1).replace(",", "."))
 
-    # MÉTODO 2: PVPR
+    # MÉTODO 2: PVPR (PROMOÇÃO)
     if pvpr is None:
         texto_total = soup.get_text()
         match = re.search(r"PVPR\s*(\d+,\d+)", texto_total)
@@ -82,14 +82,13 @@ def get_price_info(url):
 
 
 
-# RECOLHER DADOS
+# RECOLHER OS DADOS
 
 dados = []
 total_cabaz = 0
 total_sem_promo = 0
 
 for produto, url in produtos.items():
-    print(f"A obter: {produto}...")
 
     preco, pvpr, desconto_percent, desconto_euros = get_price_info(url)
 
@@ -112,7 +111,7 @@ for produto, url in produtos.items():
     time.sleep(1)
 
 
-# GUARDAR NA SUPABASE
+# GUARDAR NA BASE DE DADOS (SUPABASE)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 conn = psycopg2.connect(DATABASE_URL)
@@ -143,5 +142,3 @@ for item in dados:
 
 conn.commit()
 conn.close()
-
-print("\n✅ Dados guardados com sucesso!")
