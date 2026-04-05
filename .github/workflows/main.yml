@@ -1,27 +1,25 @@
 name: Atualizar Cabaz
-
 on:
   schedule:
     - cron: '0 8 * * *'   # todos os dias às 8h (UTC)
   workflow_dispatch:
-
 jobs:
   run-script:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Instalar dependencias
         run: pip install requests beautifulsoup4 psycopg2-binary
-
-      - name: Executar script
+      - name: Executar script Continente
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python Supabase_script_continente.py
+      - name: Executar script Auchan
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scraper_auchan.py
