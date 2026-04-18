@@ -14,7 +14,9 @@ jobs:
         with:
           python-version: '3.12'
       - name: Instalar dependencias
-        run: pip install requests beautifulsoup4 psycopg2-binary
+        run: pip install requests beautifulsoup4 psycopg2-binary playwright
+      - name: Instalar Playwright Chromium
+        run: python -m playwright install chromium --with-deps
       - name: Executar script Continente
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
