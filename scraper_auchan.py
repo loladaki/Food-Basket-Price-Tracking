@@ -79,48 +79,72 @@ def get_price_info(url):
     return preco, pvpr, desconto_percent, desconto_euros
 
 
+# FALLBACK: buscar o ultimo preco conhecido no Supabase
+
+def get_fallback(cursor, produto, supermercado):
+    cursor.execute("""
+        SELECT preco, pvpr, desconto_percent, desconto_euros
+        FROM cabaz_supabase
+        WHERE produto = %s AND supermercado = %s
+        ORDER BY data DESC
+        LIMIT 1
+    """, (produto, supermercado))
+    row = cursor.fetchone()
+    if row:
+        return row[0], row[1], row[2], row[3]
+    return None, None, None, None
+
+
+# LIGAR AO SUPABASE antes do scraping para ter fallback disponivel
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+conn = psycopg2.connect(DATABASE_URL)
+cursor = conn.cursor()
+hoje = date.today()
+
+
 # RECOLHER OS DADOS
 
 dados = []
-hoje = date.today()
 
 for produto, url in produtos.items():
 
     preco, pvpr, desconto_percent, desconto_euros = get_price_info(url)
 
+    # FALLBACK: se o scraping falhou usar o preco do dia anterior
     if preco is None:
-        print(f"Atencao: erro no produto {produto}")
-        continue
+        preco, pvpr, desconto_percent, desconto_euros = get_fallback(cursor, produto, "auchan")
+        if preco is not None:
+            print(f"Fallback usado para '{produto}' -- preco anterior: {preco:.2f} EUR")
+        else:
+            print(f"Atencao: sem preco e sem fallback para '{produto}' -- ignorado")
+            continue
 
     dados.append({
-        "produto": produto,
-        "preco": preco,
-        "pvpr": pvpr,
+        "produto":          produto,
+        "preco":            preco,
+        "pvpr":             pvpr,
         "desconto_percent": desconto_percent,
-        "desconto_euros": desconto_euros,
-        "supermercado": "auchan"
+        "desconto_euros":   desconto_euros,
+        "supermercado":     "auchan"
     })
 
     time.sleep(1)
 
 
-# GUARDAR NA BASE DE DADOS (SUPABASE)
-
-DATABASE_URL = os.getenv("DATABASE_URL")
-conn = psycopg2.connect(DATABASE_URL)
-cursor = conn.cursor()
+# GUARDAR NA BASE DE DADOS
 
 cursor.execute("""
-DELETE FROM cabaz_supabase
-WHERE data = %s AND supermercado = %s
+    DELETE FROM cabaz_supabase
+    WHERE data = %s AND supermercado = %s
 """, (hoje, "auchan"))
 
 for item in dados:
     cursor.execute("""
-    INSERT INTO cabaz_supabase
-    (data, supermercado, produto, preco, pvpr, desconto_percent, desconto_euros)
-    VALUES (%s, %s, %s, %s, %s, %s, %s)
-    ON CONFLICT (data, produto, supermercado) DO NOTHING
+        INSERT INTO cabaz_supabase
+        (data, supermercado, produto, preco, pvpr, desconto_percent, desconto_euros)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (data, produto, supermercado) DO NOTHING
     """, (
         hoje,
         item["supermercado"],
@@ -133,3 +157,5 @@ for item in dados:
 
 conn.commit()
 conn.close()
+
+print(f"Auchan: {len(dados)}/20 produtos guardados ({hoje})")
