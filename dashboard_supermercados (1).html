@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="pt" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cabaz de Supermercados</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f0ede8;--surface:#faf8f5;--surface2:#ede9e3;--border:rgba(0,0,0,0.08);
+  --text:#1c1a24;--muted:#8a8499;--cont:#16a34a;--cont-dim:rgba(22,163,74,0.1);
+  --auch:#c2560a;--auch-dim:rgba(194,86,10,0.1);--ping:#1d4ed8;--ping-dim:rgba(29,78,216,0.1);
+  --gold:#b45309;--danger:#dc2626;--success:#16a34a;--accent:#7c3aed;
+}
+[data-theme="dark"] {
+  --bg:#0e1117;--surface:#161b27;--surface2:#1e2535;--border:rgba(255,255,255,0.07);
+  --text:#e8eaf0;--muted:#6b7280;--cont:#22c55e;--cont-dim:rgba(34,197,94,0.12);
+  --auch:#f97316;--auch-dim:rgba(249,115,22,0.12);--ping:#3b82f6;--ping-dim:rgba(59,130,246,0.12);
+  --gold:#fbbf24;--danger:#f87171;--success:#4ade80;--accent:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .2s,color .2s}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;gap:16px;padding:12px 24px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{font-size:15px;font-weight:700;letter-spacing:-.3px}
+.logo span{color:var(--cont)}
+.tabs{display:flex;gap:2px;margin-left:16px}
+.tab{padding:6px 13px;border-radius:6px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;border:none;background:none;font-family:'DM Sans',sans-serif;position:relative;transition:all .15s}
+.tab:hover{color:var(--text);background:var(--surface2)}
+.tab.active{color:var(--text);background:var(--surface2);border:1px solid var(--border)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.last-update{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+.theme-btn{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:13px;cursor:pointer;color:var(--text);font-family:'DM Sans',sans-serif}
+.refresh-banner{background:rgba(251,191,36,0.15);border-bottom:1px solid rgba(251,191,36,0.3);padding:8px 24px;display:none;align-items:center;gap:10px;font-size:13px;color:var(--gold)}
+.refresh-banner.visible{display:flex}
+.refresh-btn{background:var(--gold);color:#fff;border:none;border-radius:5px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif}
+
+/* LAYOUT */
+.page{display:none;padding:22px 24px;max-width:1400px;margin:0 auto}
+.page.active{display:block}
+.page-header{margin-bottom:18px}
+.page-header h2{font-size:19px;font-weight:600;letter-spacing:-.4px}
+.page-header p{font-size:13px;color:var(--muted);margin-top:3px}
+
+/* GRIDS */
+.kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.grid-65{display:grid;grid-template-columns:1.7fr 1fr;gap:12px;margin-bottom:12px}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px}
+.card-title{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:15px 17px}
+.kpi-label{font-size:11px;color:var(--muted);margin-bottom:7px;text-transform:uppercase;letter-spacing:.05em}
+.kpi-val{font-size:26px;font-weight:600;letter-spacing:-1px;line-height:1}
+.kpi-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;margin-top:7px}
+.badge-up{background:rgba(220,38,38,0.1);color:var(--danger)}
+.badge-down{background:rgba(22,163,74,0.1);color:var(--success)}
+.badge-neutral{background:rgba(0,0,0,0.06);color:var(--muted)}
+[data-theme="dark"] .badge-neutral{background:rgba(255,255,255,0.06)}
+
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;padding:7px 11px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+.tbl td{padding:8px 11px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:rgba(0,0,0,0.02)}
+[data-theme="dark"] .tbl tr:hover td{background:rgba(255,255,255,0.02)}
+.cheaper{color:#15803d;font-weight:700;background:rgba(22,163,74,0.1);padding:2px 7px;border-radius:5px}
+[data-theme="dark"] .cheaper{color:#4ade80;background:rgba(34,197,94,0.12)}
+.pricier{color:var(--muted)}
+.winner-badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600}
+.w-cont{background:var(--cont-dim);color:var(--cont)}
+.w-auch{background:var(--auch-dim);color:var(--auch)}
+.w-ping{background:var(--ping-dim);color:var(--ping)}
+.w-igual{background:rgba(0,0,0,0.06);color:var(--muted)}
+[data-theme="dark"] .w-igual{background:rgba(255,255,255,0.06)}
+.sup-tag{font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px}
+.sup-cont{background:var(--cont-dim);color:var(--cont)}
+.sup-auch{background:var(--auch-dim);color:var(--auch)}
+.sup-ping{background:var(--ping-dim);color:var(--ping)}
+
+/* FALLBACK INDICATOR */
+.fallback-icon{font-size:12px;cursor:help;opacity:.7}
+
+/* FILTER ROW */
+.filter-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.filter-row label{font-size:12px;color:var(--muted)}
+.filter-row select,.filter-row input[type=date]{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:6px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer}
+.filter-row select:focus,.filter-row input:focus{outline:none;border-color:var(--cont)}
+
+/* EXPORT BUTTON */
+.export-btn{margin-left:auto;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;color:var(--text);font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:5px}
+.export-btn:hover{border-color:var(--cont);color:var(--cont)}
+
+/* LEGEND */
+.legend{display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+.leg-dot{width:8px;height:8px;border-radius:50%}
+
+/* DRILLDOWN */
+.drilldown{display:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:10px}
+.drilldown.visible{display:block}
+.drilldown-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.drilldown-title{font-size:13px;font-weight:600}
+.drilldown-date{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);background:var(--surface);padding:3px 9px;border-radius:6px;border:1px solid var(--border)}
+.drilldown-close{font-size:16px;color:var(--muted);cursor:pointer;background:none;border:none;line-height:1;padding:0 4px}
+.chart-cursor{cursor:pointer}
+.click-hint{font-size:11px;color:var(--muted);margin-top:5px;text-align:center}
+
+/* PREDICTION */
+.pred-badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600;margin-left:6px}
+.pred-up{background:rgba(220,38,38,0.1);color:var(--danger)}
+.pred-down{background:rgba(22,163,74,0.1);color:var(--success)}
+.pred-flat{background:rgba(0,0,0,0.06);color:var(--muted)}
+[data-theme="dark"] .pred-flat{background:rgba(255,255,255,0.06)}
+
+.loading{text-align:center;padding:60px;color:var(--muted);font-size:14px}
+.spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--cont);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+canvas{max-height:270px}
+</style>
+</head>
+<body>
+
+<div class="refresh-banner" id="refresh-banner">
+  ⚠️ Existem dados mais recentes disponíveis.
+  <button class="refresh-btn" onclick="location.reload()">Atualizar agora</button>
+</div>
+
+<div class="topbar">
+  <div class="logo">Cabaz <span>PT</span></div>
+  <div class="tabs">
+    <button class="tab active" onclick="showPage('p1',this)">Visão Geral</button>
+    <button class="tab" onclick="showPage('p2',this)">Comparação</button>
+    <button class="tab" onclick="showPage('p3',this)">Promoções</button>
+    <button class="tab" onclick="showPage('p4',this)">Histórico</button>
+    <button class="tab" onclick="showPage('p5',this)">Onde Comprar</button>
+  </div>
+  <div class="topbar-right">
+    <span class="last-update" id="last-update">A carregar...</span>
+    <button class="theme-btn" onclick="toggleTheme()">🌙 Escuro</button>
+  </div>
+</div>
+
+<!-- PAGE 1 -->
+<div class="page active" id="p1">
+  <div class="loading" id="loading1"><div class="spinner"></div>A ligar ao Supabase...</div>
+  <div id="p1-content" style="display:none">
+    <div class="kpi-row" id="kpi-row"></div>
+    <div class="grid-65">
+      <div class="card">
+        <div class="card-title">Evolução do custo total do cabaz</div>
+        <div class="legend">
+          <div class="leg"><div class="leg-dot" style="background:var(--cont)"></div>Continente</div>
+          <div class="leg"><div class="leg-dot" style="background:var(--auch)"></div>Auchan</div>
+          <div class="leg"><div class="leg-dot" style="background:var(--ping)"></div>Pingo Doce</div>
+          <div class="leg"><div class="leg-dot" style="background:var(--muted);border:1px dashed"></div>Previsão</div>
+        </div>
+        <canvas id="chart-evolucao" class="chart-cursor"></canvas>
+        <div class="click-hint">Clica num ponto para ver os preços desse dia</div>
+        <div class="drilldown" id="drilldown-evolucao">
+          <div class="drilldown-header">
+            <span class="drilldown-title">Preços em <span id="dd-date-lbl"></span></span>
+            <span class="drilldown-date" id="dd-date-val"></span>
+            <button class="drilldown-close" onclick="document.getElementById('drilldown-evolucao').classList.remove('visible')">✕</button>
+          </div>
+          <div style="overflow-x:auto"><table class="tbl" id="dd-table"></table></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Mais baratos hoje</div>
+        <canvas id="chart-donut" style="max-height:180px"></canvas>
+        <div id="donut-legend" style="margin-top:10px"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;margin-bottom:10px">
+        <span class="card-title" style="margin-bottom:0">Preços de hoje — todos os produtos</span>
+        <button class="export-btn" onclick="exportCSV('tabela-hoje','cabaz-hoje')">⬇ CSV</button>
+      </div>
+      <div style="overflow-x:auto"><table class="tbl" id="tabela-hoje"></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2 -->
+<div class="page" id="p2">
+  <div class="page-header"><h2>Comparação de Preços</h2><p>Compara os preços num dia específico</p></div>
+  <div class="filter-row">
+    <label>Data:</label>
+    <select id="sel-data-comp" onchange="renderComparacao()"></select>
+    <label>Ordenar:</label>
+    <select id="sort-comp" onchange="renderComparacao()">
+      <option value="produto">Nome</option>
+      <option value="diff">Maior diferença</option>
+      <option value="preco">Preço mais baixo</option>
+    </select>
+    <button class="export-btn" onclick="exportCSV('tabela-comp','comparacao')">⬇ CSV</button>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <canvas id="chart-barras" style="max-height:380px"></canvas>
+  </div>
+  <div class="card">
+    <div style="overflow-x:auto"><table class="tbl" id="tabela-comp"></table></div>
+  </div>
+</div>
+
+<!-- PAGE 3 -->
+<div class="page" id="p3">
+  <div class="page-header"><h2>Análise de Promoções</h2><p>Produtos em promoção hoje</p></div>
+  <div class="filter-row">
+    <label>Data:</label>
+    <select id="sel-data-promo" onchange="renderPromocoes()"></select>
+    <button class="export-btn" onclick="exportCSV('tabela-promos','promocoes')">⬇ CSV</button>
+  </div>
+  <div class="kpi-row" id="promo-kpis" style="grid-template-columns:repeat(3,1fr)"></div>
+  <br>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">Maiores descontos (%)</div><canvas id="chart-descontos"></canvas></div>
+    <div class="card"><div class="card-title">Maiores poupanças (€)</div><canvas id="chart-poupanca"></canvas></div>
+  </div>
+  <div class="card">
+    <div style="overflow-x:auto"><table class="tbl" id="tabela-promos"></table></div>
+  </div>
+</div>
+
+<!-- PAGE 4 -->
+<div class="page" id="p4">
+  <div class="page-header"><h2>Histórico e Previsão</h2><p>Evolução de preços com tendência futura</p></div>
+  <div class="filter-row">
+    <label>Produto:</label>
+    <select id="sel-produto-hist" onchange="renderHistorico()">
+      <option value="_cabaz">— Custo total do cabaz —</option>
+    </select>
+    <label>Supermercado:</label>
+    <select id="sel-sup-hist" onchange="renderHistorico()">
+      <option value="all">Todos</option>
+      <option value="continente">Continente</option>
+      <option value="auchan">Auchan</option>
+      <option value="pingodoce">Pingo Doce</option>
+    </select>
+    <button class="export-btn" onclick="exportCSV('tabela-minimos','minimos')">⬇ CSV</button>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div id="pred-info" style="margin-bottom:8px;font-size:13px"></div>
+    <canvas id="chart-hist" style="max-height:320px"></canvas>
+  </div>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">Preço mínimo histórico</div><table class="tbl" id="tabela-minimos"></table></div>
+    <div class="card"><div class="card-title">Tendência últimas 4 semanas</div><canvas id="chart-tendencia"></canvas></div>
+  </div>
+</div>
+
+<!-- PAGE 5 -->
+<div class="page" id="p5">
+  <div class="page-header"><h2>Onde Comprar</h2><p>Recomendação de compra produto a produto</p></div>
+  <div class="filter-row">
+    <label>Data:</label>
+    <select id="sel-data-comprar" onchange="renderOndeComprar()"></select>
+    <button class="export-btn" onclick="exportCSV('tabela-comprar','onde-comprar')">⬇ CSV</button>
+  </div>
+  <div class="kpi-row" id="comprar-kpis" style="grid-template-columns:repeat(4,1fr)"></div>
+  <br>
+  <div class="card"><table class="tbl" id="tabela-comprar"></table></div>
+</div>
+
+<script>
+const SUPA_URL = 'https://lfqhvioqgvksqrdxfgyy.supabase.co/rest/v1/cabaz_supabase';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmcWh2aW9xZ3Zrc3FyZHhmZ3l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDk3MDgsImV4cCI6MjA5MDEyNTcwOH0.x3oNaD6_YbWeknI3RQBldZ-MhIMr-I1k1dVFit5dit0';
+
+let ALL=[], HOJE='', DATAS=[], CHARTS={};
+const SUP_COLOR={continente:'#16a34a',auchan:'#c2560a',pingodoce:'#1d4ed8'};
+const SUP_LABEL={continente:'Continente',auchan:'Auchan',pingodoce:'Pingo Doce'};
+const fmt=v=>v!=null?v.toFixed(2)+' €':'—';
+const fmtP=v=>v!=null?v.toFixed(1)+'%':'—';
+
+// ── THEME ─────────────────────────────────────────────────────
+function toggleTheme(){
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',isDark?'light':'dark');
+  document.querySelector('.theme-btn').textContent=isDark?'🌙 Escuro':'☀️ Claro';
+  localStorage.setItem('theme',isDark?'light':'dark');
+  Object.values(CHARTS).forEach(c=>c.update());
+}
+(function initTheme(){
+  const t=localStorage.getItem('theme')||'light';
+  document.documentElement.setAttribute('data-theme',t);
+  if(t==='dark')document.querySelector('.theme-btn').textContent='☀️ Claro';
+})();
+
+// ── AUTO REFRESH ──────────────────────────────────────────────
+function checkRefresh(){
+  const today=new Date().toISOString().slice(0,10);
+  if(HOJE && HOJE<today){
+    document.getElementById('refresh-banner').classList.add('visible');
+  }
+}
+setInterval(checkRefresh,60*60*1000); // check every hour
+
+// ── NAV ───────────────────────────────────────────────────────
+function showPage(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── UTILS ─────────────────────────────────────────────────────
+function destroyChart(id){if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id];}}
+
+function getChartColors(){
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  return{grid:dark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.06)',tick:dark?'#6b7280':'#9090a0'};
+}
+
+function winnerInfo(prices){
+  const vals=Object.entries(prices).filter(([,v])=>v!=null);
+  if(!vals.length)return{cls:'w-igual',lbl:'—',isTie:false};
+  const min=Math.min(...vals.map(([,v])=>v));
+  const winners=vals.filter(([,v])=>v===min);
+  if(winners.length>1)return{cls:'w-igual',lbl:'Igual',isTie:true};
+  return{cls:`w-${winners[0][0]}`,lbl:SUP_LABEL[winners[0][0]]||winners[0][0],isTie:false};
+}
+
+function populateDateSelectors(){
+  const selectors=['sel-data-comp','sel-data-promo','sel-data-comprar'];
+  selectors.forEach(id=>{
+    const sel=document.getElementById(id);
+    if(!sel)return;
+    sel.innerHTML='';
+    [...DATAS].reverse().forEach(d=>{
+      const o=document.createElement('option');
+      o.value=d; o.textContent=d;
+      if(d===HOJE)o.selected=true;
+      sel.appendChild(o);
+    });
+  });
+}
+
+function exportCSV(tableId,filename){
+  const tbl=document.getElementById(tableId);
+  if(!tbl)return;
+  const rows=[...tbl.querySelectorAll('tr')].map(r=>
+    [...r.querySelectorAll('th,td')].map(c=>'"'+c.innerText.replace(/"/g,'""')+'"').join(',')
+  );
+  const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename+'-'+HOJE+'.csv';
+  a.click();
+}
+
+// ── LINEAR REGRESSION ─────────────────────────────────────────
+function linearRegression(values){
+  const n=values.length;
+  if(n<2)return null;
+  const x=[...Array(n).keys()];
+  const mx=x.reduce((a,b)=>a+b,0)/n;
+  const my=values.reduce((a,b)=>a+b,0)/n;
+  const num=x.reduce((s,xi,i)=>s+(xi-mx)*(values[i]-my),0);
+  const den=x.reduce((s,xi)=>s+(xi-mx)**2,0);
+  if(den===0)return null;
+  const slope=num/den;
+  const intercept=my-slope*mx;
+  return{slope,intercept,predict:i=>slope*i+intercept};
+}
+
+// ── LOAD ──────────────────────────────────────────────────────
+async function loadData(){
+  ALL=[];
+  let offset=0;
+  while(true){
+    const r=await fetch(SUPA_URL+'?select=*&order=data.asc&limit=1000&offset='+offset,
+      {headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
+    const page=await r.json();
+    if(!page.length)break;
+    ALL=ALL.concat(page);
+    if(page.length<1000)break;
+    offset+=1000;
+  }
+  if(!ALL.length){document.getElementById('loading1').innerHTML='<p style="color:var(--danger)">Sem dados.</p>';return;}
+  HOJE=ALL.reduce((a,b)=>a.data>b.data?a:b).data;
+  DATAS=[...new Set(ALL.map(d=>d.data))].sort();
+  document.getElementById('last-update').textContent='Atualizado: '+HOJE;
+
+  // populate produto selector
+  const prods=[...new Set(ALL.map(d=>d.produto))].sort();
+  const sel=document.getElementById('sel-produto-hist');
+  prods.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;sel.appendChild(o);});
+
+  populateDateSelectors();
+
+  document.getElementById('loading1').style.display='none';
+  document.getElementById('p1-content').style.display='block';
+
+  renderPage1();
+  renderComparacao();
+  renderPromocoes();
+  renderHistorico();
+  renderOndeComprar();
+  checkRefresh();
+}
+
+// ── PAGE 1 ────────────────────────────────────────────────────
+function renderPage1(){
+  const sups=[...new Set(ALL.map(d=>d.supermercado))];
+  const hoje=ALL.filter(d=>d.data===HOJE);
+  const produtos=[...new Set(hoje.map(d=>d.produto))].sort();
+  const datas=DATAS;
+
+  // previous week
+  const h=new Date(HOJE);h.setDate(h.getDate()-7);
+  const sp7=h.toISOString().slice(0,10);
+  const dataSP=datas.filter(d=>d<=sp7).slice(-1)[0];
+  const spData=dataSP?ALL.filter(d=>d.data===dataSP):[];
+
+  const custos={};
+  sups.forEach(s=>{custos[s]=hoje.filter(d=>d.supermercado===s).reduce((a,b)=>a+(b.preco||0),0);});
+  const cheapest=Object.entries(custos).sort((a,b)=>a[1]-b[1])[0];
+  const optim=produtos.reduce((sum,p)=>{
+    const vals=hoje.filter(d=>d.produto===p).map(d=>d.preco||0);
+    return sum+(vals.length?Math.min(...vals):0);
+  },0);
+
+  let kHtml='';
+  sups.forEach(s=>{
+    const c=custos[s]||0;
+    const prev=dataSP?spData.filter(d=>d.supermercado===s).reduce((a,b)=>a+(b.preco||0),0):null;
+    const diff=prev?c-prev:null;
+    const bc=diff===null?'badge-neutral':diff>0?'badge-up':'badge-down';
+    const bt=diff===null?'—':(diff>0?'▲ ':'▼ ')+Math.abs(diff).toFixed(2)+' € vs sem. passada';
+    kHtml+=`<div class="kpi-card"><div class="kpi-label">${SUP_LABEL[s]||s}</div>
+      <div class="kpi-val" style="color:${SUP_COLOR[s]}">${c.toFixed(2)} €</div>
+      <div class="kpi-badge ${bc}">${bt}</div></div>`;
+  });
+  kHtml+=`<div class="kpi-card"><div class="kpi-label">Mais barato hoje</div>
+    <div class="kpi-val" style="color:${SUP_COLOR[cheapest[0]]}">
+      ${SUP_LABEL[cheapest[0]]}</div>
+    <div class="kpi-badge badge-down">${cheapest[1].toFixed(2)} € total</div></div>`;
+  kHtml+=`<div class="kpi-card"><div class="kpi-label">Poupança otimizada</div>
+    <div class="kpi-val" style="color:var(--gold)">${(Math.max(...Object.values(custos))-optim).toFixed(2)} €</div>
+    <div class="kpi-badge badge-neutral">cada produto no mais barato</div></div>`;
+  document.getElementById('kpi-row').innerHTML=kHtml;
+
+  // Evolution chart with prediction
+  const cc=getChartColors();
+  const predDays=7;
+  const datasets=sups.map(s=>({
+    label:SUP_LABEL[s]||s,
+    data:datas.map(d=>{const r=ALL.filter(x=>x.data===d&&x.supermercado===s);return r.length?r.reduce((a,b)=>a+(b.preco||0),0):null;}),
+    borderColor:SUP_COLOR[s],backgroundColor:'transparent',tension:.3,pointRadius:3,spanGaps:true
+  }));
+
+  // Add prediction datasets (dashed)
+  const allDatesWithPred=[...datas,...Array.from({length:predDays},(_,i)=>{
+    const d=new Date(datas[datas.length-1]);d.setDate(d.getDate()+i+1);return d.toISOString().slice(0,10);
+  })];
+  sups.forEach(s=>{
+    const vals=datas.map(d=>{const r=ALL.filter(x=>x.data===d&&x.supermercado===s);return r.length?r.reduce((a,b)=>a+(b.preco||0),0):null;}).filter(v=>v!=null);
+    const last14=vals.slice(-14).filter(v=>v!=null);
+    const reg=linearRegression(last14);
+    if(!reg)return;
+    const predStart=datas.length;
+    const predData=allDatesWithPred.map((_,i)=>i<predStart?null:reg.predict(last14.length+(i-predStart)));
+    datasets.push({
+      label:`Prev. ${SUP_LABEL[s]||s}`,
+      data:predData,
+      borderColor:SUP_COLOR[s],backgroundColor:'transparent',
+      borderDash:[5,4],tension:.3,pointRadius:0,spanGaps:false,borderWidth:1.5
+    });
+  });
+
+  window._evoDates=allDatesWithPred;
+  window._evoDatasLength=datas.length;
+
+  destroyChart('chart-evolucao');
+  CHARTS['chart-evolucao']=new Chart(document.getElementById('chart-evolucao'),{
+    type:'line',
+    data:{labels:allDatesWithPred.map(d=>d.slice(5)),datasets},
+    options:{
+      responsive:true,interaction:{mode:'index'},
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:cc.grid},ticks:{color:cc.tick,maxTicksLimit:12}},
+        y:{grid:{color:cc.grid},ticks:{color:cc.tick,callback:v=>v.toFixed(0)+' €'}}
+      },
+      onClick:(evt,els)=>{
+        if(!els.length)return;
+        const idx=els[0].index;
+        const d=(window._evoDates||[])[idx];
+        if(d&&idx<(window._evoDatasLength||0))showDrilldown(d);
+      }
+    }
+  });
+
+  // Donut
+  const winCount={};let tieCount=0;
+  sups.forEach(s=>winCount[s]=0);
+  produtos.forEach(p=>{
+    const prices={};
+    sups.forEach(s=>{const r=hoje.find(d=>d.produto===p&&d.supermercado===s);if(r)prices[s]=r.preco;});
+    const vals=Object.values(prices).filter(v=>v!=null);
+    if(!vals.length)return;
+    const min=Math.min(...vals);
+    const winners=Object.entries(prices).filter(([,v])=>v===min);
+    if(winners.length>1)tieCount++;
+    else if(winners.length===1)winCount[winners[0][0]]=(winCount[winners[0][0]]||0)+1;
+  });
+  destroyChart('chart-donut');
+  CHARTS['chart-donut']=new Chart(document.getElementById('chart-donut'),{
+    type:'doughnut',
+    data:{
+      labels:[...sups.map(s=>SUP_LABEL[s]),'Igual'],
+      datasets:[{data:[...sups.map(s=>winCount[s]||0),tieCount],
+        backgroundColor:[...sups.map(s=>SUP_COLOR[s]),'#9090a0'],borderWidth:0}]
+    },
+    options:{cutout:'68%',responsive:true,plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed}`}}}}
+  });
+  let dLeg='';
+  sups.forEach(s=>{dLeg+=`<div class="leg" style="margin-bottom:3px"><div class="leg-dot" style="background:${SUP_COLOR[s]}"></div>${SUP_LABEL[s]}: <b style="color:${SUP_COLOR[s]};margin-left:4px">${winCount[s]||0}</b></div>`;});
+  dLeg+=`<div class="leg"><div class="leg-dot" style="background:#9090a0"></div>Igual: <b style="margin-left:4px">${tieCount}</b></div>`;
+  document.getElementById('donut-legend').innerHTML=dLeg;
+
+  // Table
+  let th='<thead><tr><th>Produto</th>';
+  sups.forEach(s=>th+=`<th>${SUP_LABEL[s]||s}</th>`);
+  th+='<th>Mais barato</th></tr></thead><tbody>';
+  let rows='';
+  produtos.forEach(p=>{
+    const prices={};
+    sups.forEach(s=>{const r=hoje.find(d=>d.produto===p&&d.supermercado===s);if(r)prices[s]=r.preco;});
+    const min=Math.min(...Object.values(prices).filter(v=>v!=null));
+    const w=winnerInfo(prices);
+    rows+=`<tr><td>${p}</td>`;
+    sups.forEach(s=>{
+      const v=prices[s];
+      const fb=hoje.find(d=>d.produto===p&&d.supermercado===s)?.is_fallback;
+      const fbIcon=fb?` <span class="fallback-icon" title="Preço do dia anterior">⚠️</span>`:'';
+      rows+=`<td class="${v===min?'cheaper':'pricier'}">${v!=null?v.toFixed(2)+' €':'—'}${fbIcon}</td>`;
+    });
+    rows+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td></tr>`;
+  });
+  document.getElementById('tabela-hoje').innerHTML=th+rows+'</tbody>';
+}
+
+// ── DRILLDOWN ─────────────────────────────────────────────────
+function showDrilldown(data){
+  const sups=[...new Set(ALL.map(d=>d.supermercado))];
+  const produtos=[...new Set(ALL.filter(d=>d.data===data).map(d=>d.produto))].sort();
+  const hojeRows=ALL.filter(d=>d.data===HOJE);
+  document.getElementById('dd-date-lbl').textContent=data;
+  document.getElementById('dd-date-val').textContent=data;
+  let html='<thead><tr><th>Produto</th>';
+  sups.forEach(s=>html+=`<th>${SUP_LABEL[s]||s}</th>`);
+  html+='<th>Mais barato</th></tr></thead><tbody>';
+  produtos.forEach(p=>{
+    const prices={};
+    sups.forEach(s=>{const r=ALL.find(d=>d.data===data&&d.produto===p&&d.supermercado===s);if(r)prices[s]=r.preco;});
+    const vals=Object.entries(prices).filter(([,v])=>v!=null);
+    if(!vals.length)return;
+    const min=Math.min(...vals.map(([,v])=>v));
+    const w=winnerInfo(prices);
+    html+=`<tr><td>${p}</td>`;
+    sups.forEach(s=>{
+      const v=prices[s];
+      const hRow=hojeRows.find(d=>d.produto===p&&d.supermercado===s);
+      let diff=v!=null&&hRow?.preco!=null&&data!==HOJE?v-hRow.preco:null;
+      let dH=diff!=null?(diff>0.005?` <span style="font-size:10px;color:var(--danger)">&#9650;${diff.toFixed(2)}</span>`:diff<-0.005?` <span style="font-size:10px;color:var(--success)">&#9660;${Math.abs(diff).toFixed(2)}</span>`:''):'';
+      html+=`<td class="${v===min?'cheaper':'pricier'}">${v!=null?v.toFixed(2)+' &#8364;':'&mdash;'}${dH}</td>`;
+    });
+    html+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td></tr>`;
+  });
+  // totals
+  const totals={};
+  sups.forEach(s=>{totals[s]=ALL.filter(d=>d.data===data&&d.supermercado===s).reduce((a,b)=>a+(b.preco||0),0);});
+  const minT=Math.min(...Object.values(totals));
+  html+='<tr style="font-weight:600;border-top:2px solid var(--border)"><td>TOTAL</td>';
+  sups.forEach(s=>{
+    const t=totals[s];const hT=ALL.filter(d=>d.data===HOJE&&d.supermercado===s).reduce((a,b)=>a+(b.preco||0),0);
+    const diff=data!==HOJE?t-hT:null;
+    const dH=diff!=null&&Math.abs(diff)>0.01?(diff>0?` <span style="font-size:10px;color:var(--danger)">&#9650;${diff.toFixed(2)}</span>`:` <span style="font-size:10px;color:var(--success)">&#9660;${Math.abs(diff).toFixed(2)}</span>`):'';
+    html+=`<td class="${t===minT?'cheaper':'pricier'}">${t.toFixed(2)} &#8364;${dH}</td>`;
+  });
+  html+='<td></td></tr></tbody>';
+  document.getElementById('dd-table').innerHTML=html;
+  const p=document.getElementById('drilldown-evolucao');
+  p.classList.add('visible');
+  p.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ── PAGE 2 ────────────────────────────────────────────────────
+function renderComparacao(){
+  const data=document.getElementById('sel-data-comp')?.value||HOJE;
+  const sortBy=document.getElementById('sort-comp').value;
+  const sups=[...new Set(ALL.map(d=>d.supermercado))];
+  const hoje=ALL.filter(d=>d.data===data);
+  let produtos=[...new Set(hoje.map(d=>d.produto))];
+  if(sortBy==='diff'){
+    produtos=produtos.sort((a,b)=>{
+      const pA=hoje.filter(d=>d.produto===a).map(d=>d.preco||0);
+      const pB=hoje.filter(d=>d.produto===b).map(d=>d.preco||0);
+      return(Math.max(...pB)-Math.min(...pB))-(Math.max(...pA)-Math.min(...pA));
+    });
+  }else if(sortBy==='preco'){
+    produtos=produtos.sort((a,b)=>Math.min(...hoje.filter(d=>d.produto===a).map(d=>d.preco||99))-Math.min(...hoje.filter(d=>d.produto===b).map(d=>d.preco||99)));
+  }else produtos.sort();
+
+  const cc=getChartColors();
+  destroyChart('chart-barras');
+  CHARTS['chart-barras']=new Chart(document.getElementById('chart-barras'),{
+    type:'bar',
+    data:{
+      labels:produtos.map(p=>p.length>18?p.slice(0,16)+'…':p),
+      datasets:sups.map(s=>({
+        label:SUP_LABEL[s]||s,
+        data:produtos.map(p=>{const r=hoje.find(d=>d.produto===p&&d.supermercado===s);return r?r.preco:null;}),
+        backgroundColor:SUP_COLOR[s]+'bb',borderColor:SUP_COLOR[s],borderWidth:1,borderRadius:4
+      }))
+    },
+    options:{
+      responsive:true,indexAxis:'y',
+      plugins:{legend:{labels:{color:cc.tick,font:{size:12}}}},
+      scales:{
+        x:{grid:{color:cc.grid},ticks:{color:cc.tick,callback:v=>v+' €'}},
+        y:{grid:{color:cc.grid},ticks:{color:cc.tick,font:{size:11}}}
+      }
+    }
+  });
+
+  let html='<thead><tr><th>Produto</th>';
+  sups.forEach(s=>html+=`<th>${SUP_LABEL[s]||s}</th>`);
+  html+='<th>Diferença</th><th>Mais barato</th></tr></thead><tbody>';
+  produtos.forEach(p=>{
+    const prices={};
+    sups.forEach(s=>{const r=hoje.find(d=>d.produto===p&&d.supermercado===s);if(r)prices[s]=r.preco;});
+    const vals=Object.values(prices).filter(v=>v!=null);
+    if(!vals.length)return;
+    const min=Math.min(...vals);const max=Math.max(...vals);
+    const diff=vals.length>1?max-min:null;
+    const w=winnerInfo(prices);
+    html+=`<tr><td>${p}</td>`;
+    sups.forEach(s=>{
+      const v=prices[s];
+      const fb=hoje.find(d=>d.produto===p&&d.supermercado===s)?.is_fallback;
+      const fbIcon=fb?` <span class="fallback-icon" title="Preço do dia anterior">⚠️</span>`:'';
+      html+=`<td class="${v===min?'cheaper':'pricier'}">${v!=null?v.toFixed(2)+' €':'—'}${fbIcon}</td>`;
+    });
+    html+=`<td>${diff!=null?diff.toFixed(2)+' €':'—'}</td>`;
+    html+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td></tr>`;
+  });
+  document.getElementById('tabela-comp').innerHTML=html+'</tbody>';
+}
+
+// ── PAGE 3 ────────────────────────────────────────────────────
+function renderPromocoes(){
+  const data=document.getElementById('sel-data-promo')?.value||HOJE;
+  const hoje=ALL.filter(d=>d.data===data);
+  const sups=[...new Set(ALL.map(d=>d.supermercado))];
+  const emPromo=hoje.filter(d=>d.desconto_euros>0);
+  const totalPoup=emPromo.reduce((a,b)=>a+(b.desconto_euros||0),0);
+  const maxDesc=emPromo.length?emPromo.reduce((a,b)=>a.desconto_percent>b.desconto_percent?a:b):null;
+
+  document.getElementById('promo-kpis').innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">Em promoção</div>
+      <div class="kpi-val" style="color:var(--cont)">${emPromo.length}<span style="font-size:16px;color:var(--muted)">/${hoje.length}</span></div></div>
+    <div class="kpi-card"><div class="kpi-label">Maior desconto</div>
+      <div class="kpi-val" style="color:var(--gold)">${maxDesc?maxDesc.desconto_percent.toFixed(1)+'%':'—'}</div>
+      ${maxDesc?`<div style="font-size:11px;color:var(--muted);margin-top:4px">${maxDesc.produto.slice(0,30)}</div>`:''}</div>
+    <div class="kpi-card"><div class="kpi-label">Total poupável</div>
+      <div class="kpi-val" style="color:var(--accent)">${totalPoup.toFixed(2)} €</div></div>`;
+
+  const top10p=[...emPromo].sort((a,b)=>b.desconto_percent-a.desconto_percent).slice(0,10);
+  const top10e=[...emPromo].sort((a,b)=>b.desconto_euros-a.desconto_euros).slice(0,10);
+  const cc=getChartColors();
+
+  destroyChart('chart-descontos');
+  CHARTS['chart-descontos']=new Chart(document.getElementById('chart-descontos'),{
+    type:'bar',
+    data:{labels:top10p.map(d=>d.produto.slice(0,20)+'…'),
+      datasets:[{data:top10p.map(d=>d.desconto_percent),
+        backgroundColor:top10p.map(d=>(SUP_COLOR[d.supermercado]||'#888')+'bb'),
+        borderColor:top10p.map(d=>SUP_COLOR[d.supermercado]||'#888'),borderWidth:1,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:cc.grid},ticks:{color:cc.tick,callback:v=>v+'%'}},y:{grid:{display:false},ticks:{color:cc.tick,font:{size:11}}}}}
+  });
+  destroyChart('chart-poupanca');
+  CHARTS['chart-poupanca']=new Chart(document.getElementById('chart-poupanca'),{
+    type:'bar',
+    data:{labels:top10e.map(d=>d.produto.slice(0,20)+'…'),
+      datasets:[{data:top10e.map(d=>d.desconto_euros),
+        backgroundColor:top10e.map(d=>(SUP_COLOR[d.supermercado]||'#888')+'bb'),
+        borderColor:top10e.map(d=>SUP_COLOR[d.supermercado]||'#888'),borderWidth:1,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:cc.grid},ticks:{color:cc.tick,callback:v=>v+' €'}},y:{grid:{display:false},ticks:{color:cc.tick,font:{size:11}}}}}
+  });
+
+  let html='<thead><tr><th>Produto</th><th>Supermercado</th><th>Preço</th><th>PVPR</th><th>Desconto</th><th>Poupança</th></tr></thead><tbody>';
+  [...emPromo].sort((a,b)=>b.desconto_percent-a.desconto_percent).forEach(d=>{
+    html+=`<tr><td>${d.produto}</td>
+      <td><span class="sup-tag sup-${d.supermercado}">${SUP_LABEL[d.supermercado]||d.supermercado}</span></td>
+      <td class="cheaper">${fmt(d.preco)}</td>
+      <td style="text-decoration:line-through;color:var(--muted)">${fmt(d.pvpr)}</td>
+      <td style="color:var(--gold)">${fmtP(d.desconto_percent)}</td>
+      <td style="color:var(--cont)">-${fmt(d.desconto_euros)}</td></tr>`;
+  });
+  document.getElementById('tabela-promos').innerHTML=html+'</tbody>';
+}
+
+// ── PAGE 4 ────────────────────────────────────────────────────
+function renderHistorico(){
+  const sel=document.getElementById('sel-produto-hist').value;
+  const supFilt=document.getElementById('sel-sup-hist').value;
+  const sups=supFilt==='all'?[...new Set(ALL.map(d=>d.supermercado))]:[supFilt];
+  const predDays=14;
+  const cc=getChartColors();
+
+  let histVals={};
+  sups.forEach(s=>{
+    histVals[s]=DATAS.map(d=>{
+      if(sel==='_cabaz'){
+        const r=ALL.filter(x=>x.data===d&&x.supermercado===s);
+        return r.length?r.reduce((a,b)=>a+(b.preco||0),0):null;
+      }else{
+        const r=ALL.find(x=>x.data===d&&x.supermercado===s&&x.produto===sel);
+        return r?r.preco:null;
+      }
+    });
+  });
+
+  // Build prediction
+  const futureDates=Array.from({length:predDays},(_,i)=>{
+    const d=new Date(DATAS[DATAS.length-1]);d.setDate(d.getDate()+i+1);return d.toISOString().slice(0,10);
+  });
+  const allDates=[...DATAS,...futureDates];
+  const datasets=[];
+  let predInfo='';
+
+  sups.forEach(s=>{
+    const vals=histVals[s];
+    datasets.push({
+      label:SUP_LABEL[s]||s,
+      data:[...vals,...Array(predDays).fill(null)],
+      borderColor:SUP_COLOR[s],backgroundColor:'transparent',tension:.3,pointRadius:3,spanGaps:true
+    });
+    const nonNull=vals.filter(v=>v!=null);
+    const last14=nonNull.slice(-14);
+    const reg=linearRegression(last14);
+    if(reg){
+      const predData=[...Array(DATAS.length).fill(null),...futureDates.map((_,i)=>reg.predict(last14.length+i))];
+      datasets.push({
+        label:`Prev. ${SUP_LABEL[s]||s}`,
+        data:predData,
+        borderColor:SUP_COLOR[s],backgroundColor:'transparent',
+        borderDash:[5,4],tension:.3,pointRadius:0,spanGaps:false,borderWidth:1.5
+      });
+      const trend=reg.slope;
+      const badge=Math.abs(trend)<0.01?
+        `<span class="pred-badge pred-flat">Estável</span>`:
+        trend>0?`<span class="pred-badge pred-up">▲ +${(trend*7).toFixed(2)} €/sem</span>`:
+        `<span class="pred-badge pred-down">▼ ${(trend*7).toFixed(2)} €/sem</span>`;
+      predInfo+=`<span style="margin-right:12px"><b style="color:${SUP_COLOR[s]}">${SUP_LABEL[s]||s}</b> ${badge}</span>`;
+    }
+  });
+
+  document.getElementById('pred-info').innerHTML=predInfo?'Tendência (14 dias): '+predInfo:'';
+
+  destroyChart('chart-hist');
+  CHARTS['chart-hist']=new Chart(document.getElementById('chart-hist'),{
+    type:'line',
+    data:{labels:allDates.map(d=>d.slice(5)),datasets},
+    options:{
+      responsive:true,interaction:{mode:'index'},
+      plugins:{legend:{labels:{color:cc.tick,font:{size:11},boxWidth:12}}},
+      scales:{
+        x:{grid:{color:cc.grid},ticks:{color:cc.tick,maxTicksLimit:14}},
+        y:{grid:{color:cc.grid},ticks:{color:cc.tick,callback:v=>v.toFixed(2)+' €'}}
+      }
+    }
+  });
+
+  // Minimos table
+  const allSups=[...new Set(ALL.map(d=>d.supermercado))];
+  const prods=[...new Set(ALL.map(d=>d.produto))].sort();
+  let html='<thead><tr><th>Produto</th>';
+  allSups.forEach(s=>html+=`<th>Min ${SUP_LABEL[s]||s}</th>`);
+  html+='</tr></thead><tbody>';
+  prods.slice(0,12).forEach(p=>{
+    html+=`<tr><td>${p}</td>`;
+    allSups.forEach(s=>{
+      const vals=ALL.filter(d=>d.produto===p&&d.supermercado===s).map(d=>d.preco).filter(v=>v!=null);
+      const min=vals.length?Math.min(...vals):null;
+      html+=`<td style="color:var(--gold)">${min!=null?min.toFixed(2)+' €':'—'}</td>`;
+    });
+    html+='</tr>';
+  });
+  document.getElementById('tabela-minimos').innerHTML=html+'</tbody>';
+
+  // Tendência 4 semanas
+  const last28=DATAS.slice(-28);
+  destroyChart('chart-tendencia');
+  CHARTS['chart-tendencia']=new Chart(document.getElementById('chart-tendencia'),{
+    type:'line',
+    data:{
+      labels:last28.map(d=>d.slice(5)),
+      datasets:allSups.map(s=>({
+        label:SUP_LABEL[s]||s,
+        data:last28.map(d=>{const r=ALL.filter(x=>x.data===d&&x.supermercado===s);return r.length?r.reduce((a,b)=>a+(b.preco||0),0):null;}),
+        borderColor:SUP_COLOR[s],backgroundColor:SUP_COLOR[s]+'18',fill:true,tension:.3,pointRadius:2,spanGaps:true
+      }))
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{color:cc.tick,font:{size:11}}}},
+      scales:{
+        x:{grid:{color:cc.grid},ticks:{color:cc.tick,maxTicksLimit:8}},
+        y:{grid:{color:cc.grid},ticks:{color:cc.tick,callback:v=>v.toFixed(0)+' €'}}
+      }
+    }
+  });
+}
+
+// ── PAGE 5 ────────────────────────────────────────────────────
+function renderOndeComprar(){
+  const data=document.getElementById('sel-data-comprar')?.value||HOJE;
+  const sups=[...new Set(ALL.map(d=>d.supermercado))];
+  const hoje=ALL.filter(d=>d.data===data);
+  const produtos=[...new Set(hoje.map(d=>d.produto))].sort();
+
+  const supTotals={};
+  sups.forEach(s=>supTotals[s]=hoje.filter(d=>d.supermercado===s).reduce((a,b)=>a+(b.preco||0),0));
+  const optim=produtos.reduce((sum,p)=>{
+    const vals=hoje.filter(d=>d.produto===p).map(d=>d.preco||99);
+    return sum+Math.min(...vals);
+  },0);
+  const maxT=Math.max(...Object.values(supTotals));
+
+  let kHtml='';
+  sups.forEach(s=>{
+    kHtml+=`<div class="kpi-card"><div class="kpi-label">Tudo no ${SUP_LABEL[s]||s}</div>
+      <div class="kpi-val" style="color:${SUP_COLOR[s]}">${(supTotals[s]||0).toFixed(2)} €</div></div>`;
+  });
+  kHtml+=`<div class="kpi-card"><div class="kpi-label">Compra otimizada</div>
+    <div class="kpi-val" style="color:var(--gold)">${optim.toFixed(2)} €</div>
+    <div class="kpi-badge badge-down">Poupança: ${(maxT-optim).toFixed(2)} €</div></div>`;
+  document.getElementById('comprar-kpis').innerHTML=kHtml;
+
+  let html='<thead><tr><th>Produto</th>';
+  sups.forEach(s=>html+=`<th>${SUP_LABEL[s]||s}</th>`);
+  html+='<th>Recomendação</th><th>Poupança vs mais caro</th></tr></thead><tbody>';
+  produtos.forEach(p=>{
+    const prices={};
+    sups.forEach(s=>{const r=hoje.find(d=>d.produto===p&&d.supermercado===s);if(r)prices[s]=r.preco;});
+    const vals=Object.entries(prices).filter(([,v])=>v!=null);
+    if(!vals.length)return;
+    const min=Math.min(...vals.map(([,v])=>v));
+    const max=Math.max(...vals.map(([,v])=>v));
+    const w=winnerInfo(prices);
+    html+=`<tr><td>${p}</td>`;
+    sups.forEach(s=>{
+      const v=prices[s];
+      const fb=hoje.find(d=>d.produto===p&&d.supermercado===s)?.is_fallback;
+      const fbIcon=fb?` <span class="fallback-icon" title="Preço do dia anterior">⚠️</span>`:'';
+      html+=`<td class="${v===min?'cheaper':'pricier'}">${v!=null?v.toFixed(2)+' €':'—'}${fbIcon}</td>`;
+    });
+    const saving=vals.length>1?max-min:0;
+    html+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td>`;
+    html+=`<td style="color:${saving>0.5?'var(--success)':'var(--muted)'}">${saving>0?'-'+saving.toFixed(2)+' €':'—'}</td></tr>`;
+  });
+  document.getElementById('tabela-comprar').innerHTML=html+'</tbody>';
+}
+
+loadData().catch(e=>{
+  document.getElementById('loading1').innerHTML=`<p style="color:var(--danger)">Erro: ${e.message}</p>`;
+});
+</script>
+</body>
+</html>
