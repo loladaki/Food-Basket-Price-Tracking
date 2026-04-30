@@ -23,7 +23,7 @@ produtos = {
     "acucar": "https://www.continente.pt/produto/acucar-branco-continente-continente-5038799.html",
     "farinha": "https://www.continente.pt/produto/farinha-de-trigo-t65-continente-continente-7579107.html",
     "manteiga": "https://www.continente.pt/produto/creme-vegetal-para-barrar-sabor-a-manteiga-becel-becel-7621869.html",
-    "iogurte": "https://www.continente.pt/produto/iogurte-aroma-morango-continente-continente-5788569.html",
+    "iogurte": "https://www.continente.pt/produto/iogurte-aroma-coco-continente-continente-5788581.html",
     "queijo": "https://www.continente.pt/produto/queijo-flamengo-fatiado-continente-continente-6184775.html",
     "cafe": "https://www.continente.pt/produto/cafe-soluvel-classico-continente-continente-4871954.html",
     "cereais": "https://www.continente.pt/produto/cereais-chocapic-chocapic-2004742.html",
