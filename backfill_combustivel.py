@@ -1,14 +1,12 @@
 """
 backfill_combustivel.py
-Run ONCE locally to populate historical fuel data for the last 60 days.
+Run ONCE (via GitHub Actions > Backfill Combustivel) to populate historical
+fuel data going back to 1 week before the Iran conflict (Feb 21, 2026).
 
-  python backfill_combustivel.py
-
-Requires DATABASE_URL env var (same as the scrapers).
-- Brent USD/EUR : daily data via yfinance (all 60 days)
-- Gasolina95/Gasoleo PT : weekly from caetano.pt current page for the current
-  week; remaining weeks are filled with NULL (they accumulate from now on).
-  If you want to add historical PT prices manually, edit the HISTORICO dict below.
+- Brent USD/EUR : daily data via yfinance (~90 days)
+- Gasolina95/Gasóleo PT : weekly national averages sourced from razaoautomovel.com
+  and caetano.pt, covering every week from Sem.8 (Feb 16) to Sem.20 (May 11).
+  Each weekly price is applied to all 7 days of that ISO week.
 """
 
 import os
@@ -22,19 +20,49 @@ import yfinance as yf
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# ── OPTIONAL: add known historical weekly PT prices here ─────────────────────
-# Format: "YYYY-MM-DD" (any day of that week) -> (gasolina95, gasoleo)
-# The script will apply each price to all days of that ISO week.
-# Values already in the DB (e.g. today) are never overwritten.
+# ── Histórico semanal de preços PT (fontes: razaoautomovel.com, caetano.pt) ──
+# Formato: "YYYY-MM-DD" (qualquer dia dessa semana) -> (gasolina95, gasoleo)
+# Cada entrada aplica-se a todos os dias da semana ISO correspondente.
+# Registos já existentes na BD nunca são sobrescritos (ON CONFLICT DO NOTHING).
 HISTORICO_PT = {
-    # Example — uncomment and fill in if you have the data:
-    # "2026-03-24": (1.889, 1.845),
-    # "2026-03-31": (1.901, 1.860),
-    # "2026-04-07": (1.923, 1.878),
-    # "2026-04-14": (1.945, 1.912),
-    # "2026-04-21": (1.958, 1.930),
-    # "2026-04-28": (1.967, 1.950),
-    # "2026-05-05": (1.972, 1.961),
+    # Sem. 8  — 1 semana antes do conflito Irão (início 28 Fev)
+    "2026-02-16": (1.681, 1.589),  # estimado por interpolação (semana 2→9)
+
+    # Sem. 9  — conflito inicia 28 Fev (dentro desta semana)
+    "2026-02-23": (1.684, 1.598),  # fonte: razaoautomovel semana 9
+
+    # Sem. 10 — primeiro impacto nos preços (+2.9 cênt. diesel, +1.6 gas)
+    "2026-03-02": (1.700, 1.628),  # fonte: razaoautomovel semana 10
+
+    # Sem. 11 — grande salto (+17.2 cênt. diesel, +6.7 gas — "aumento histórico")
+    "2026-03-09": (1.772, 1.807),  # fonte: razaoautomovel semana 11
+
+    # Sem. 12 — nova subida brusca (+10 cênt. cada)
+    "2026-03-16": (1.939, 1.964),  # fonte: pplware / razaoautomovel semana 12
+
+    # Sem. 13 — gasóleo ultrapassa 2 €
+    "2026-03-23": (1.918, 2.037),  # fonte: razaoautomovel semana 13
+
+    # Sem. 14 — continuação da subida
+    "2026-03-30": (1.920, 2.075),  # fonte: razaoautomovel semana 14
+
+    # Sem. 15 — PICO HISTÓRICO gasóleo (máximo: 2.145 €/L em 9 Abr)
+    "2026-04-06": (1.948, 2.145),  # fonte: razaoautomovel semana 15
+
+    # Sem. 16 — início da descida (-5.4 cênt. diesel, -2.8 gas)
+    "2026-04-13": (1.920, 2.090),  # fonte: razaoautomovel semana 16
+
+    # Sem. 17 — descida continua
+    "2026-04-20": (1.898, 1.988),  # fonte: razaoautomovel semana 17
+
+    # Sem. 18 — alguma estabilização (gasóleo desce, gas sobe ligeiramente)
+    "2026-04-27": (1.927, 1.958),  # fonte: caetano.pt semana 18
+
+    # Sem. 19 — nova subida brusca ("disparam") antes de nova descida
+    "2026-05-04": (1.999, 2.058),  # estimado: semana 20 - delta (May 8 article: -9/-2)
+
+    # Sem. 20 — descida confirmada pelo scraper
+    "2026-05-11": (1.979, 1.968),  # fonte: scraper caetano.pt (confirmado)
 }
 
 
@@ -103,9 +131,10 @@ for week_date_str, prices in HISTORICO_PT.items():
         pt_by_day[d] = prices
 
 # ── 2. Download 60 days of Brent + EUR/USD via yfinance ──────────────────────
-print("\nA descarregar histórico Brent (60 dias)...")
-brent_df = yf.download("BZ=F",    period="65d", auto_adjust=True, progress=False)
-fx_df    = yf.download("EURUSD=X", period="65d", auto_adjust=True, progress=False)
+# Cobre desde 1 semana antes do conflito Irão (21 Fev 2026) até hoje
+print("\nA descarregar historico Brent (90 dias)...")
+brent_df = yf.download("BZ=F",    period="95d", auto_adjust=True, progress=False)
+fx_df    = yf.download("EURUSD=X", period="95d", auto_adjust=True, progress=False)
 
 if brent_df.empty:
     print("ERRO: yfinance não devolveu dados do Brent.")
