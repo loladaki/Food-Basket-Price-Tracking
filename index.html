@@ -138,6 +138,7 @@ canvas{max-height:270px}
     <button class="tab" onclick="showPage('p3',this)">Promoções</button>
     <button class="tab" onclick="showPage('p4',this)">Histórico</button>
     <button class="tab" onclick="showPage('p5',this)">Onde Comprar</button>
+    <button class="tab" onclick="showPage('p6',this)">⚡ Energia & Cabaz</button>
   </div>
   <div class="topbar-right">
     <span class="last-update" id="last-update">A carregar...</span>
@@ -267,11 +268,45 @@ canvas{max-height:270px}
   <div class="card"><table class="tbl" id="tabela-comprar"></table></div>
 </div>
 
+<div class="page" id="p6">
+  <div class="page-header">
+    <h2>Energia & Cabaz</h2>
+    <p>Correlação entre o preço do petróleo/combustíveis e o custo do cabaz alimentar</p>
+  </div>
+  <div class="kpi-row" id="energia-kpis" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kpi-card"><div class="kpi-label">Brent Crude</div><div class="kpi-val" id="kpi-brent-usd">—</div><div class="kpi-badge badge-neutral" id="kpi-brent-eur">— €/barril</div></div>
+    <div class="kpi-card"><div class="kpi-label">Gasolina 95 (PT)</div><div class="kpi-val" id="kpi-gasolina">—</div><div class="kpi-badge badge-neutral">€/litro</div></div>
+    <div class="kpi-card"><div class="kpi-label">Gasóleo (PT)</div><div class="kpi-val" id="kpi-gasoleo">—</div><div class="kpi-badge badge-neutral">€/litro</div></div>
+    <div class="kpi-card"><div class="kpi-label">Correlação Brent ↔ Cabaz</div><div class="kpi-val" id="kpi-corr">—</div><div class="kpi-badge badge-neutral" id="kpi-corr-label">Pearson r</div></div>
+  </div>
+  <br>
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Evolução: Brent (USD/barril) vs Cabaz médio (€)</div>
+    <canvas id="chart-energia" height="90"></canvas>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Preços combustíveis PT (€/litro)</div>
+      <canvas id="chart-combustivel" height="160"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">Dispersão Brent vs Cabaz</div>
+      <canvas id="chart-scatter" height="160"></canvas>
+    </div>
+  </div>
+  <br>
+  <div class="card">
+    <div class="card-title">Dados históricos de energia</div>
+    <div style="overflow-x:auto"><table class="tbl" id="tabela-energia"></table></div>
+  </div>
+</div>
+
 <script>
 const SUPA_URL = 'https://lfqhvioqgvksqrdxfgyy.supabase.co/rest/v1/cabaz_supabase';
+const SUPA_FUEL_URL = 'https://lfqhvioqgvksqrdxfgyy.supabase.co/rest/v1/combustivel_precos';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmcWh2aW9xZ3Zrc3FyZHhmZ3l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDk3MDgsImV4cCI6MjA5MDEyNTcwOH0.x3oNaD6_YbWeknI3RQBldZ-MhIMr-I1k1dVFit5dit0';
 
-let ALL=[], HOJE='', DATAS=[], CHARTS={};
+let ALL=[], FUEL=[], HOJE='', DATAS=[], CHARTS={};
 const SUP_COLOR={continente:'#16a34a',auchan:'#c2560a',pingodoce:'#1d4ed8'};
 const SUP_LABEL={continente:'Continente',auchan:'Auchan',pingodoce:'Pingo Doce'};
 const fmt=v=>v!=null?v.toFixed(2)+' €':'—';
@@ -401,7 +436,186 @@ async function loadData(){
   renderPromocoes();
   renderHistorico();
   renderOndeComprar();
+  await loadFuelData();
   checkRefresh();
+}
+
+// ── PEARSON CORRELATION ───────────────────────────────────────
+function pearsonCorr(x, y){
+  const n=x.length;
+  if(n<2)return null;
+  const mx=x.reduce((a,b)=>a+b,0)/n, my=y.reduce((a,b)=>a+b,0)/n;
+  const num=x.reduce((s,xi,i)=>s+(xi-mx)*(y[i]-my),0);
+  const den=Math.sqrt(x.reduce((s,xi)=>s+(xi-mx)**2,0)*y.reduce((s,yi)=>s+(yi-my)**2,0));
+  return den===0?null:parseFloat((num/den).toFixed(3));
+}
+
+// ── LOAD FUEL DATA ────────────────────────────────────────────
+async function loadFuelData(){
+  try{
+    const r=await fetch(SUPA_FUEL_URL+'?select=*&order=data.asc&limit=1000',
+      {headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}});
+    FUEL=await r.json();
+    if(!Array.isArray(FUEL))FUEL=[];
+  }catch(e){FUEL=[];}
+  renderEnergia();
+}
+
+// ── PAGE 6: ENERGIA & CABAZ ───────────────────────────────────
+function renderEnergia(){
+  const cc=getChartColors();
+
+  // Build daily basket average across all supermarkets
+  const camazPorDia={};
+  DATAS.forEach(d=>{
+    const sups=[...new Set(ALL.filter(r=>r.data===d).map(r=>r.supermercado))];
+    if(!sups.length)return;
+    const totais=sups.map(s=>ALL.filter(r=>r.data===d&&r.supermercado===s).reduce((a,b)=>a+(b.preco||0),0));
+    camazPorDia[d]=totais.reduce((a,b)=>a+b,0)/totais.length;
+  });
+
+  // Latest fuel KPIs
+  const latest=FUEL.length?FUEL[FUEL.length-1]:null;
+  if(latest){
+    document.getElementById('kpi-brent-usd').textContent=latest.brent_usd!=null?latest.brent_usd.toFixed(2)+' $':'—';
+    document.getElementById('kpi-brent-eur').textContent=latest.brent_eur!=null?latest.brent_eur.toFixed(2)+' €/barril':'— €/barril';
+    document.getElementById('kpi-gasolina').textContent=latest.gasolina95!=null?latest.gasolina95.toFixed(3)+' €':'—';
+    document.getElementById('kpi-gasoleo').textContent=latest.gasoleo!=null?latest.gasoleo.toFixed(3)+' €':'—';
+  }
+
+  // Align dates between fuel and basket
+  const fuelDates=FUEL.map(f=>f.data);
+  const commonDates=Object.keys(camazPorDia).filter(d=>fuelDates.includes(d)).sort();
+
+  // Pearson correlation
+  const brentVals=commonDates.map(d=>FUEL.find(f=>f.data===d)?.brent_usd).filter(v=>v!=null);
+  const camazVals=commonDates.map(d=>camazPorDia[d]).filter(v=>v!=null);
+  const minLen=Math.min(brentVals.length,camazVals.length);
+  const corr=pearsonCorr(brentVals.slice(0,minLen),camazVals.slice(0,minLen));
+  const corrEl=document.getElementById('kpi-corr');
+  const corrLabel=document.getElementById('kpi-corr-label');
+  if(corr!==null){
+    corrEl.textContent=corr.toFixed(2);
+    const strength=Math.abs(corr);
+    const dir=corr>0?'positiva':'negativa';
+    corrEl.style.color=strength>0.7?'var(--danger)':strength>0.4?'var(--gold)':'var(--muted)';
+    corrLabel.textContent=strength>0.7?`Forte correlação ${dir}`:strength>0.4?`Moderada ${dir}`:`Fraca ${dir}`;
+  }else{
+    corrEl.textContent='—';
+    corrLabel.textContent='Dados insuficientes';
+  }
+
+  // All dates for main chart (basket + brent side by side)
+  const allChartDates=[...new Set([...Object.keys(camazPorDia),...fuelDates])].sort();
+  const camazLine=allChartDates.map(d=>camazPorDia[d]??null);
+  const brentLine=allChartDates.map(d=>{const f=FUEL.find(r=>r.data===d);return f?.brent_usd??null;});
+
+  // ── Chart 1: dual-axis Brent vs Cabaz ─────────────────────
+  destroyChart('energia');
+  CHARTS['energia']=new Chart(document.getElementById('chart-energia'),{
+    type:'line',
+    data:{
+      labels:allChartDates,
+      datasets:[
+        {label:'Brent (USD/barril)',data:brentLine,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.08)',
+         yAxisID:'yBrent',tension:0.3,pointRadius:2,borderWidth:2,spanGaps:true},
+        {label:'Cabaz médio (€)',data:camazLine,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,0.08)',
+         yAxisID:'yCabaz',tension:0.3,pointRadius:2,borderWidth:2,spanGaps:true}
+      ]
+    },
+    options:{
+      responsive:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:cc.tick,font:{size:12}}},tooltip:{callbacks:{
+        label:ctx=>{
+          const v=ctx.raw;
+          if(v==null)return null;
+          return ctx.dataset.label+': '+(ctx.dataset.yAxisID==='yBrent'?v.toFixed(2)+' $':v.toFixed(2)+' €');
+        }
+      }}},
+      scales:{
+        x:{ticks:{color:cc.tick,maxTicksLimit:12},grid:{color:cc.grid}},
+        yBrent:{position:'right',ticks:{color:'#f59e0b',callback:v=>v+'$'},grid:{display:false},
+          title:{display:true,text:'Brent USD/barril',color:'#f59e0b',font:{size:11}}},
+        yCabaz:{position:'left',ticks:{color:'#7c3aed',callback:v=>v+'€'},grid:{color:cc.grid},
+          title:{display:true,text:'Cabaz médio €',color:'#7c3aed',font:{size:11}}}
+      }
+    }
+  });
+
+  // ── Chart 2: Gasolina + Gasóleo PT ────────────────────────
+  const gasoline95Line=allChartDates.map(d=>{const f=FUEL.find(r=>r.data===d);return f?.gasolina95??null;});
+  const gasoleoLine=allChartDates.map(d=>{const f=FUEL.find(r=>r.data===d);return f?.gasoleo??null;});
+  const hasPT=gasoline95Line.some(v=>v!=null)||gasoleoLine.some(v=>v!=null);
+
+  destroyChart('combustivel');
+  if(hasPT){
+    CHARTS['combustivel']=new Chart(document.getElementById('chart-combustivel'),{
+      type:'line',
+      data:{
+        labels:allChartDates,
+        datasets:[
+          {label:'Gasolina 95 (€/L)',data:gasoline95Line,borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.08)',
+           tension:0.3,pointRadius:2,borderWidth:2,spanGaps:true},
+          {label:'Gasóleo (€/L)',data:gasoleoLine,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',
+           tension:0.3,pointRadius:2,borderWidth:2,spanGaps:true}
+        ]
+      },
+      options:{
+        responsive:true,
+        interaction:{mode:'index',intersect:false},
+        plugins:{legend:{labels:{color:cc.tick,font:{size:11}}}},
+        scales:{
+          x:{ticks:{color:cc.tick,maxTicksLimit:10},grid:{color:cc.grid}},
+          y:{ticks:{color:cc.tick,callback:v=>v.toFixed(3)+' €'},grid:{color:cc.grid}}
+        }
+      }
+    });
+  }else{
+    document.getElementById('chart-combustivel').parentElement.innerHTML+=
+      '<p style="color:var(--muted);font-size:13px;margin-top:8px">Os preços PT de gasolina/gasóleo ainda não estão disponíveis — serão preenchidos automaticamente após o próximo scrape.</p>';
+  }
+
+  // ── Chart 3: Scatter Brent vs Cabaz ───────────────────────
+  const scatterData=commonDates.slice(0,minLen).map((_,i)=>({x:brentVals[i],y:camazVals[i]}));
+  destroyChart('scatter');
+  CHARTS['scatter']=new Chart(document.getElementById('chart-scatter'),{
+    type:'scatter',
+    data:{datasets:[{
+      label:'Brent vs Cabaz',
+      data:scatterData,
+      backgroundColor:'rgba(124,58,237,0.5)',
+      pointRadius:5
+    }]},
+    options:{
+      responsive:true,
+      plugins:{legend:{labels:{color:cc.tick,font:{size:11}}},tooltip:{callbacks:{
+        label:ctx=>`Brent: ${ctx.raw.x.toFixed(1)}$ | Cabaz: ${ctx.raw.y.toFixed(2)}€`
+      }}},
+      scales:{
+        x:{title:{display:true,text:'Brent (USD/barril)',color:cc.tick,font:{size:11}},ticks:{color:cc.tick},grid:{color:cc.grid}},
+        y:{title:{display:true,text:'Cabaz médio (€)',color:cc.tick,font:{size:11}},ticks:{color:cc.tick},grid:{color:cc.grid}}
+      }
+    }
+  });
+
+  // ── Historical table ───────────────────────────────────────
+  const tblDatas=[...fuelDates].reverse().slice(0,30);
+  let html='<thead><tr><th>Data</th><th>Brent (USD)</th><th>Brent (EUR)</th><th>Gasolina 95</th><th>Gasóleo</th><th>Cabaz médio</th></tr></thead><tbody>';
+  tblDatas.forEach(d=>{
+    const f=FUEL.find(r=>r.data===d);
+    const cab=camazPorDia[d];
+    if(!f)return;
+    html+=`<tr>
+      <td style="font-family:'DM Mono',monospace;font-size:12px">${d}</td>
+      <td>${f.brent_usd!=null?f.brent_usd.toFixed(2)+' $':'—'}</td>
+      <td>${f.brent_eur!=null?f.brent_eur.toFixed(2)+' €':'—'}</td>
+      <td>${f.gasolina95!=null?f.gasolina95.toFixed(3)+' €/L':'—'}</td>
+      <td>${f.gasoleo!=null?f.gasoleo.toFixed(3)+' €/L':'—'}</td>
+      <td style="color:var(--accent);font-weight:600">${cab!=null?cab.toFixed(2)+' €':'—'}</td>
+    </tr>`;
+  });
+  document.getElementById('tabela-energia').innerHTML=html+'</tbody>';
 }
 
 // ── PAGE 1 ────────────────────────────────────────────────────
