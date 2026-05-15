@@ -1,0 +1,20 @@
+name: Backfill Combustivel (executar uma vez)
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Instalar dependencias
+        run: pip install requests beautifulsoup4 psycopg2-binary yfinance pandas
+      - name: Executar backfill
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python backfill_combustivel.py
