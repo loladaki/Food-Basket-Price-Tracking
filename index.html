@@ -572,8 +572,22 @@ function renderEnergia(){
   });
 
   // ── Chart 2: Gasolina + Gasóleo PT ────────────────────────
-  const gasoline95Line=allChartDates.map(d=>{const f=FUEL.find(r=>r.data===d);return f?.gasolina95??null;});
-  const gasoleoLine=allChartDates.map(d=>{const f=FUEL.find(r=>r.data===d);return f?.gasoleo??null;});
+  // Mapa por data para lookup O(1)
+  const fuelMap={};
+  FUEL.forEach(f=>{fuelMap[f.data]=f;});
+
+  // Forward-fill: preços semanais propagam-se para todos os dias seguintes
+  // (fins de semana e feriados não têm linha própria na BD — Brent não negoceia)
+  let ffG95=null, ffGas=null;
+  const gasoline95Line=allChartDates.map(d=>{
+    if(fuelMap[d]?.gasolina95!=null) ffG95=fuelMap[d].gasolina95;
+    return ffG95;
+  });
+  let ffGas2=null;
+  const gasoleoLine=allChartDates.map(d=>{
+    if(fuelMap[d]?.gasoleo!=null) ffGas2=fuelMap[d].gasoleo;
+    return ffGas2;
+  });
   const hasPT=gasoline95Line.some(v=>v!=null)||gasoleoLine.some(v=>v!=null);
 
   destroyChart('combustivel');
@@ -584,9 +598,9 @@ function renderEnergia(){
         labels:allChartDates,
         datasets:[
           {label:'Gasolina 95 (€/L)',data:gasoline95Line,borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.08)',
-           tension:0.3,pointRadius:2,borderWidth:2,spanGaps:true},
+           tension:0,pointRadius:0,borderWidth:2,spanGaps:false,stepped:'before'},
           {label:'Gasóleo (€/L)',data:gasoleoLine,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',
-           tension:0.3,pointRadius:2,borderWidth:2,spanGaps:true}
+           tension:0,pointRadius:0,borderWidth:2,spanGaps:false,stepped:'before'}
         ]
       },
       options:{
