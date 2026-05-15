@@ -1,11 +1,13 @@
 import yfinance as yf
 import psycopg2
 import os
+import re
 import requests
+from bs4 import BeautifulSoup
 from datetime import date
 
-# DGEG combustivel IDs: 3 = Gasolina 95, 16 = Gasóleo simples
-DGEG_URL = "https://www.precoscombustiveis.dgeg.gov.pt/api/PrecoComb/GetMediaNacional"
+# Fonte: blog semanal com preços oficiais PT (atualizado todas as semanas)
+CAETANO_URL = "https://caetano.pt/blog/preco-dos-combustiveis-esta-semana/"
 
 
 def get_brent_price():
@@ -29,25 +31,49 @@ def get_brent_price():
         return None, None
 
 
-def get_dgeg_price(combustivel_id):
+def get_pt_fuel_prices():
+    """
+    Scrape preços semanais PT de caetano.pt.
+    A página publica uma tabela com Gasolina 95 e Gasóleo todas as semanas.
+    """
+    gasolina95 = None
+    gasoleo = None
     try:
-        params = {"combustivel": combustivel_id, "pais": 0}
-        headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
-        r = requests.get(DGEG_URL, params=params, headers=headers, timeout=15)
-        if r.status_code == 200:
-            data = r.json()
-            # A resposta da DGEG vem com campo "resultado" ou "data" com o preço médio
-            if isinstance(data, list) and data:
-                preco = data[0].get("PrecoMedio") or data[0].get("preco") or data[0].get("Preco")
-                if preco:
-                    return round(float(str(preco).replace(",", ".")), 3)
-            elif isinstance(data, dict):
-                preco = data.get("PrecoMedio") or data.get("preco") or data.get("Preco")
-                if preco:
-                    return round(float(str(preco).replace(",", ".")), 3)
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(CAETANO_URL, headers=headers, timeout=15)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        # Método 1: procura em linhas de tabela
+        for row in soup.find_all("tr"):
+            cells = row.find_all("td")
+            if len(cells) >= 2:
+                label = cells[0].get_text(strip=True).lower()
+                valor_txt = cells[1].get_text(strip=True)
+                match = re.search(r"(\d+[.,]\d+)", valor_txt)
+                if match:
+                    val = round(float(match.group(1).replace(",", ".")), 3)
+                    if "gasolina 95" in label or "gasolina95" in label:
+                        gasolina95 = val
+                    elif "gasóleo" in label or "gasoleo" in label or "diesel" in label:
+                        gasoleo = val
+
+        # Método 2: fallback por regex no texto completo da página
+        if gasolina95 is None or gasoleo is None:
+            texto = soup.get_text()
+            if gasolina95 is None:
+                m = re.search(r"gasolina\s*95[^\d]*(\d+[.,]\d+)", texto, re.IGNORECASE)
+                if m:
+                    gasolina95 = round(float(m.group(1).replace(",", ".")), 3)
+            if gasoleo is None:
+                m = re.search(r"gas[oó]leo[^\d]*(\d+[.,]\d+)", texto, re.IGNORECASE)
+                if m:
+                    gasoleo = round(float(m.group(1).replace(",", ".")), 3)
+
     except Exception as e:
-        print(f"Erro DGEG (id={combustivel_id}): {e}")
-    return None
+        print(f"Erro ao obter preços PT: {e}")
+
+    return gasolina95, gasoleo
 
 
 def get_fallback(cursor):
@@ -69,8 +95,7 @@ cursor = conn.cursor()
 hoje = date.today()
 
 brent_usd, brent_eur = get_brent_price()
-gasolina95 = get_dgeg_price(3)
-gasoleo = get_dgeg_price(16)
+gasolina95, gasoleo = get_pt_fuel_prices()
 
 # FALLBACK se algum valor falhou
 fb_brent_usd, fb_brent_eur, fb_gasolina, fb_gasoleo = get_fallback(cursor)
