@@ -31,10 +31,35 @@ def get_brent_price():
         return None, None
 
 
+PRECO_MIN = 0.9   # €/L — abaixo disto não é um preço ao litro válido
+PRECO_MAX = 3.5   # €/L — acima disto também não
+
+
+def parse_preco(txt):
+    """Extrai float de um texto; devolve None se fora do intervalo válido de preço."""
+    m = re.search(r"(\d+[.,]\d+)", txt)
+    if m:
+        val = round(float(m.group(1).replace(",", ".")), 3)
+        if PRECO_MIN <= val <= PRECO_MAX:
+            return val
+    return None
+
+
+def first_valid_price(matches_iter):
+    """Dada uma lista de strings candidatas, devolve o primeiro valor válido."""
+    for txt in matches_iter:
+        val = parse_preco(txt)
+        if val is not None:
+            return val
+    return None
+
+
 def get_pt_fuel_prices():
     """
     Scrape preços semanais PT de caetano.pt.
     A página publica uma tabela com Gasolina 95 e Gasóleo todas as semanas.
+    Filtramos por intervalo válido (0.9–3.5 €/L) para evitar apanhar
+    valores como descontos ISP (ex: 7,55 cêntimos/L).
     """
     gasolina95 = None
     gasoleo = None
@@ -44,31 +69,28 @@ def get_pt_fuel_prices():
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # Método 1: procura em linhas de tabela
+        # Método 1: linhas de tabela — filtra pelo intervalo válido
         for row in soup.find_all("tr"):
             cells = row.find_all("td")
             if len(cells) >= 2:
                 label = cells[0].get_text(strip=True).lower()
-                valor_txt = cells[1].get_text(strip=True)
-                match = re.search(r"(\d+[.,]\d+)", valor_txt)
-                if match:
-                    val = round(float(match.group(1).replace(",", ".")), 3)
-                    if "gasolina 95" in label or "gasolina95" in label:
-                        gasolina95 = val
-                    elif "gasóleo" in label or "gasoleo" in label or "diesel" in label:
-                        gasoleo = val
+                val = parse_preco(cells[1].get_text(strip=True))
+                if val is None:
+                    continue
+                if ("gasolina 95" in label or "gasolina95" in label) and gasolina95 is None:
+                    gasolina95 = val
+                elif ("gasóleo" in label or "gasoleo" in label or "diesel" in label) and gasoleo is None:
+                    gasoleo = val
 
-        # Método 2: fallback por regex no texto completo da página
+        # Método 2: regex no texto completo — apanha TODOS os números e filtra por intervalo
         if gasolina95 is None or gasoleo is None:
             texto = soup.get_text()
             if gasolina95 is None:
-                m = re.search(r"gasolina\s*95[^\d]*(\d+[.,]\d+)", texto, re.IGNORECASE)
-                if m:
-                    gasolina95 = round(float(m.group(1).replace(",", ".")), 3)
+                candidatos = re.findall(r"gasolina\s*95[^\n]{0,40}?(\d+[.,]\d+)", texto, re.IGNORECASE)
+                gasolina95 = first_valid_price(candidatos)
             if gasoleo is None:
-                m = re.search(r"gas[oó]leo[^\d]*(\d+[.,]\d+)", texto, re.IGNORECASE)
-                if m:
-                    gasoleo = round(float(m.group(1).replace(",", ".")), 3)
+                candidatos = re.findall(r"gas[oó]leo[^\n]{0,40}?(\d+[.,]\d+)", texto, re.IGNORECASE)
+                gasoleo = first_valid_price(candidatos)
 
     except Exception as e:
         print(f"Erro ao obter preços PT: {e}")
