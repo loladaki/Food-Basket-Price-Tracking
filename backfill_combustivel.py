@@ -168,18 +168,21 @@ for ts, row in df.iterrows():
     brent_eur = float(row["brent_eur"]) if not pd.isna(row["brent_eur"]) else None
     g95, gas  = pt_by_day.get(d, (None, None))
 
+    # UPSERT: atualiza valores existentes sem apagar dados já gravados
+    # COALESCE garante que um NULL no backfill nunca sobrescreve um valor real
     cur.execute("""
         INSERT INTO combustivel_precos (data, brent_usd, brent_eur, gasolina95, gasoleo)
         VALUES (%s, %s, %s, %s, %s)
-        ON CONFLICT (data) DO NOTHING
+        ON CONFLICT (data) DO UPDATE SET
+            brent_usd  = COALESCE(EXCLUDED.brent_usd,  combustivel_precos.brent_usd),
+            brent_eur  = COALESCE(EXCLUDED.brent_eur,  combustivel_precos.brent_eur),
+            gasolina95 = COALESCE(EXCLUDED.gasolina95, combustivel_precos.gasolina95),
+            gasoleo    = COALESCE(EXCLUDED.gasoleo,    combustivel_precos.gasoleo)
     """, (d, brent_usd, brent_eur, g95, gas))
 
-    if cur.rowcount:
-        inserted += 1
-        pt_str = f"G95={g95} Gas={gas}" if g95 else "PT=—"
-        print(f"  {d}: Brent={brent_usd:.2f}$ / {brent_eur:.2f}€  {pt_str}")
-    else:
-        skipped += 1
+    pt_str = f"G95={g95} Gas={gas}" if g95 else "PT=--"
+    print(f"  {d}: Brent={brent_usd:.2f}$ / {brent_eur:.2f}EUR  {pt_str}")
+    inserted += 1
 
 conn.commit()
 conn.close()
