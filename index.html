@@ -508,6 +508,8 @@ function renderEnergia(){
 
   // All dates for main chart (basket + brent side by side)
   const allChartDates=[...new Set([...Object.keys(camazPorDia),...fuelDates])].sort();
+  // 28 Fev é sábado — não existe nos dados. Usamos o primeiro dia disponível >= 28 Fev.
+  const CONFLITO_DATE = allChartDates.find(d=>d>='2026-02-28') || '2026-02-28';
   const camazLine=allChartDates.map(d=>camazPorDia[d]??null);
   const brentLine=allChartDates.map(d=>{const f=FUEL.find(r=>r.data===d);return f?.brent_usd??null;});
 
@@ -540,8 +542,8 @@ function renderEnergia(){
           annotations:{
             conflito:{
               type:'line',
-              xMin:'2026-02-28',
-              xMax:'2026-02-28',
+              xMin:CONFLITO_DATE,
+              xMax:CONFLITO_DATE,
               borderColor:'rgba(239,68,68,0.85)',
               borderWidth:2,
               borderDash:[6,4],
@@ -606,7 +608,18 @@ function renderEnergia(){
       options:{
         responsive:true,
         interaction:{mode:'index',intersect:false},
-        plugins:{legend:{labels:{color:cc.tick,font:{size:11}}}},
+        plugins:{
+          legend:{labels:{color:cc.tick,font:{size:11}}},
+          annotation:{annotations:{conflito:{
+            type:'line',
+            xMin:CONFLITO_DATE,xMax:CONFLITO_DATE,
+            borderColor:'rgba(239,68,68,0.85)',borderWidth:2,borderDash:[6,4],
+            label:{content:'⚔️ Início conflito Irão',display:true,position:'start',
+              color:'#ef4444',backgroundColor:'rgba(239,68,68,0.1)',
+              borderColor:'rgba(239,68,68,0.4)',borderWidth:1,borderRadius:4,
+              padding:{x:6,y:4},font:{size:11,weight:'bold'}}
+          }}}
+        },
         scales:{
           x:{ticks:{color:cc.tick,maxTicksLimit:10},grid:{color:cc.grid}},
           y:{ticks:{color:cc.tick,callback:v=>v.toFixed(3)+' €'},grid:{color:cc.grid}}
