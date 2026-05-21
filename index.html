@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cabaz de Supermercados</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -296,6 +295,17 @@ canvas{max-height:270px}
     </div>
   </div>
   <br>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Correlação com lag (dias de atraso)</div>
+      <canvas id="chart-lag" height="160"></canvas>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px;justify-content:center">
+      <div class="card-title">Interpretação da correlação</div>
+      <div id="lag-interpretation" style="font-size:13px;color:var(--text);line-height:1.7"></div>
+    </div>
+  </div>
+  <br>
   <div class="card">
     <div class="card-title">Dados históricos de energia</div>
     <div style="overflow-x:auto"><table class="tbl" id="tabela-energia"></table></div>
@@ -441,6 +451,32 @@ async function loadData(){
   checkRefresh();
 }
 
+// ── PLUGIN: LINHA VERTICAL (substitui chartjs-plugin-annotation) ─────────────
+const conflitLinePlugin={
+  id:'conflitLine',
+  afterDraw(chart){
+    const d=chart.config.options?.conflitDate;
+    if(!d)return;
+    const labels=chart.data.labels||[];
+    const idx=labels.indexOf(d);
+    if(idx===-1)return;
+    const {ctx,chartArea,scales}=chart;
+    const x=scales.x.getPixelForValue(idx);
+    ctx.save();
+    ctx.beginPath();ctx.moveTo(x,chartArea.top);ctx.lineTo(x,chartArea.bottom);
+    ctx.lineWidth=2;ctx.strokeStyle='rgba(239,68,68,0.85)';ctx.setLineDash([6,4]);ctx.stroke();
+    ctx.setLineDash([]);
+    const txt='⚔️ Início conflito Irão';
+    ctx.font='bold 11px "DM Sans",sans-serif';
+    const tw=ctx.measureText(txt).width;
+    ctx.fillStyle='rgba(239,68,68,0.12)';ctx.fillRect(x+5,chartArea.top+4,tw+14,22);
+    ctx.strokeStyle='rgba(239,68,68,0.45)';ctx.lineWidth=1;ctx.strokeRect(x+5,chartArea.top+4,tw+14,22);
+    ctx.fillStyle='#ef4444';ctx.fillText(txt,x+12,chartArea.top+19);
+    ctx.restore();
+  }
+};
+Chart.register(conflitLinePlugin);
+
 // ── PEARSON CORRELATION ───────────────────────────────────────
 function pearsonCorr(x, y){
   const n=x.length;
@@ -538,31 +574,8 @@ function renderEnergia(){
             return ctx.dataset.label+': '+(ctx.dataset.yAxisID==='yBrent'?v.toFixed(2)+' $':v.toFixed(2)+' €');
           }
         }},
-        annotation:{
-          annotations:{
-            conflito:{
-              type:'line',
-              xMin:CONFLITO_DATE,
-              xMax:CONFLITO_DATE,
-              borderColor:'rgba(239,68,68,0.85)',
-              borderWidth:2,
-              borderDash:[6,4],
-              label:{
-                content:'⚔️ Início conflito Irão',
-                display:true,
-                position:'start',
-                color:'#ef4444',
-                backgroundColor:'rgba(239,68,68,0.1)',
-                borderColor:'rgba(239,68,68,0.4)',
-                borderWidth:1,
-                borderRadius:4,
-                padding:{x:6,y:4},
-                font:{size:11,weight:'bold'}
-              }
-            }
-          }
-        }
       },
+      conflitDate:CONFLITO_DATE,
       scales:{
         x:{ticks:{color:cc.tick,maxTicksLimit:12},grid:{color:cc.grid}},
         yBrent:{position:'right',ticks:{color:'#f59e0b',callback:v=>v+'$'},grid:{display:false},
@@ -610,16 +623,8 @@ function renderEnergia(){
         interaction:{mode:'index',intersect:false},
         plugins:{
           legend:{labels:{color:cc.tick,font:{size:11}}},
-          annotation:{annotations:{conflito:{
-            type:'line',
-            xMin:CONFLITO_DATE,xMax:CONFLITO_DATE,
-            borderColor:'rgba(239,68,68,0.85)',borderWidth:2,borderDash:[6,4],
-            label:{content:'⚔️ Início conflito Irão',display:true,position:'start',
-              color:'#ef4444',backgroundColor:'rgba(239,68,68,0.1)',
-              borderColor:'rgba(239,68,68,0.4)',borderWidth:1,borderRadius:4,
-              padding:{x:6,y:4},font:{size:11,weight:'bold'}}
-          }}}
         },
+        conflitDate:CONFLITO_DATE,
         scales:{
           x:{ticks:{color:cc.tick,maxTicksLimit:10},grid:{color:cc.grid}},
           y:{ticks:{color:cc.tick,callback:v=>v.toFixed(3)+' €'},grid:{color:cc.grid}}
@@ -653,6 +658,85 @@ function renderEnergia(){
       }
     }
   });
+
+  // ── Lag correlation analysis ──────────────────────────────
+  const brentByDay={};
+  FUEL.forEach(f=>{if(f.brent_usd!=null)brentByDay[f.data]=f.brent_usd;});
+
+  function calcLagCorr(lagDays){
+    const xs=[],ys=[];
+    for(const d of Object.keys(camazPorDia).sort()){
+      const cabaz=camazPorDia[d];
+      if(cabaz==null)continue;
+      // Encontrar data de lagDays dias atrás
+      const dt=new Date(d);
+      dt.setDate(dt.getDate()-lagDays);
+      const lagStr=dt.toISOString().slice(0,10);
+      // Procurar Brent nessa data (ou ±1 dia útil)
+      let brent=brentByDay[lagStr];
+      if(brent==null){
+        const dt2=new Date(lagStr);dt2.setDate(dt2.getDate()-1);
+        brent=brentByDay[dt2.toISOString().slice(0,10)];
+      }
+      if(brent==null)continue;
+      xs.push(brent);ys.push(cabaz);
+    }
+    return xs.length>=5?pearsonCorr(xs,ys):null;
+  }
+
+  const lagDays=[0,7,14,21,28,35,42];
+  const lagCorrs=lagDays.map(l=>calcLagCorr(l));
+  const bestLagIdx=lagCorrs.reduce((bi,v,i)=>v!=null&&Math.abs(v)>Math.abs(lagCorrs[bi]??-1)?i:bi,0);
+  const bestLag=lagDays[bestLagIdx];
+  const bestCorr=lagCorrs[bestLagIdx];
+
+  destroyChart('lag');
+  CHARTS['lag']=new Chart(document.getElementById('chart-lag'),{
+    type:'bar',
+    data:{
+      labels:lagDays.map(l=>l===0?'Sem lag':l+' dias'),
+      datasets:[{
+        label:'Pearson r',
+        data:lagCorrs,
+        backgroundColor:lagCorrs.map((v,i)=>i===bestLagIdx?'rgba(124,58,237,0.8)':'rgba(124,58,237,0.3)'),
+        borderColor:lagCorrs.map((v,i)=>i===bestLagIdx?'#7c3aed':'rgba(124,58,237,0.5)'),
+        borderWidth:1,borderRadius:4
+      }]
+    },
+    options:{
+      responsive:true,indexAxis:'y',
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.raw!=null?'r = '+ctx.raw.toFixed(3):'sem dados'}}},
+      scales:{
+        x:{min:-1,max:1,ticks:{color:cc.tick,callback:v=>v.toFixed(1)},grid:{color:cc.grid},
+          title:{display:true,text:'Pearson r',color:cc.tick,font:{size:11}}},
+        y:{ticks:{color:cc.tick},grid:{display:false}}
+      }
+    }
+  });
+
+  // Interpretação
+  const hasLag=lagCorrs.some(v=>v!=null);
+  let interpHtml='';
+  if(hasLag){
+    const r0=lagCorrs[0]?.toFixed(2)??'—';
+    const rBest=bestCorr?.toFixed(2)??'—';
+    const corrDir=bestCorr>0?'positiva':'negativa';
+    const corrForce=Math.abs(bestCorr??0)>0.5?'moderada a forte':Math.abs(bestCorr??0)>0.3?'moderada':'fraca';
+    interpHtml=`
+      <b>Correlação instantânea (lag 0): r = ${r0}</b><br>
+      Fraca ou negativa — o Brent e o cabaz não sobem/descem em simultâneo.<br><br>
+      <b>Melhor correlação encontrada: r = ${rBest} com lag de ${bestLag} dias</b><br>
+      Correlação ${corrForce} ${corrDir}: o Brent de há ${bestLag} dias tem a maior
+      relação com o custo do cabaz de hoje.<br><br>
+      <span style="color:var(--muted);font-size:12px">
+      ⚠️ <b>Limitação:</b> só temos ~55 dias de dados do cabaz. Com 6+ meses o padrão
+      ficará muito mais claro. O efeito real do petróleo nos alimentos leva tipicamente
+      3–8 semanas a propagar-se (transporte → distribuição → retalho).
+      </span>`;
+  }else{
+    interpHtml='<span style="color:var(--muted)">Dados insuficientes para análise de lag.</span>';
+  }
+  document.getElementById('lag-interpretation').innerHTML=interpHtml;
 
   // ── Historical table ───────────────────────────────────────
   const tblDatas=[...fuelDates].reverse().slice(0,30);
