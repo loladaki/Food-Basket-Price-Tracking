@@ -12,7 +12,7 @@ import time
 produtos = {
     "arroz": "https://www.continente.pt/produto/arroz-carolino-continente-continente-4738050.html",
     "massa": "https://www.continente.pt/produto/massa-esparguete-pack-poupanca-continente-continente-5253941.html",
-    "leite": "https://www.continente.pt/produto/leite-uht-meio-gordo-continente-continente-6879912.html",
+    "leite": "https://www.continente.pt/produto/leite-uht-meio-gordo-gresso-gresso-7848880.html",
     "ovos": "https://www.continente.pt/produto/ovos-de-solo-classe-m-continente-continente-7284496.html",
     "frango": "https://www.continente.pt/produto/frango-completo-aos-pedacos-continente-continente-7069752.html",
     "atum": "https://www.continente.pt/produto/atum-em-azeite-continente-continente-3697794.html",
