@@ -5,6 +5,9 @@ import psycopg2
 import os
 from datetime import date
 import time
+import statistics
+
+MAX_VARIACAO_PCT = 60   # variacao maxima (%) face a mediana historica antes de rejeitar o valor
 
 
 # PRODUTOS
@@ -95,6 +98,21 @@ def get_fallback(cursor, produto, supermercado):
     return None, None, None, None
 
 
+# VALOR DE REFERENCIA: mediana dos ultimos N valores (robusta a outliers)
+# 'coluna' e' um nome interno controlado ('preco' ou 'pvpr'), nunca input externo.
+
+def get_referencia(cursor, produto, supermercado, coluna, n=14):
+    cursor.execute(f"""
+        SELECT {coluna}
+        FROM cabaz_supabase
+        WHERE produto = %s AND supermercado = %s AND {coluna} IS NOT NULL
+        ORDER BY data DESC
+        LIMIT %s
+    """, (produto, supermercado, n))
+    vals = [float(r[0]) for r in cursor.fetchall()]
+    return statistics.median(vals) if vals else None
+
+
 # LIGAR AO SUPABASE antes do scraping para ter fallback disponivel
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -119,6 +137,24 @@ for produto, url in produtos.items():
         else:
             print(f"Atencao: sem preco e sem fallback para '{produto}' -- ignorado")
             continue
+    else:
+        # FAILSAFE: validar preco e pvpr contra a mediana historica de cada um.
+        ref_preco = get_referencia(cursor, produto, "auchan", "preco")
+        ref_pvpr  = get_referencia(cursor, produto, "auchan", "pvpr")
+        suspeito = None
+        if ref_preco:
+            var = abs(preco - ref_preco) / ref_preco * 100
+            if var > MAX_VARIACAO_PCT:
+                suspeito = f"preco {preco:.2f} vs ref {ref_preco:.2f} ({var:.0f}%)"
+        if suspeito is None and pvpr is not None and ref_pvpr:
+            var = abs(pvpr - ref_pvpr) / ref_pvpr * 100
+            if var > MAX_VARIACAO_PCT:
+                suspeito = f"pvpr {pvpr:.2f} vs ref {ref_pvpr:.2f} ({var:.0f}%)"
+        if suspeito is not None:
+            fb = get_fallback(cursor, produto, "auchan")
+            if fb[0] is not None:
+                print(f"Valor SUSPEITO '{produto}' -- {suspeito}. A usar valores anteriores.")
+                preco, pvpr, desconto_percent, desconto_euros = fb
 
     dados.append({
         "produto":          produto,
