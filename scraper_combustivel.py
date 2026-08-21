@@ -6,37 +6,31 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import date
 
-# Fonte: blog semanal com preços oficiais PT (atualizado todas as semanas)
 CAETANO_URL = "https://caetano.pt/blog/preco-dos-combustiveis-esta-semana/"
+
+# limites de um preco ao litro plausivel; serve para nao apanhar o desconto ISP
+# (ex: "7,55 centimos/L") em vez do preco real
+PRECO_MIN = 0.9
+PRECO_MAX = 3.5
 
 
 def get_brent_price():
     try:
-        brent = yf.Ticker("BZ=F")
-        hist = brent.history(period="5d")
+        hist = yf.Ticker("BZ=F").history(period="5d")
         if hist.empty:
             return None, None
-        price_usd = round(float(hist["Close"].iloc[-1]), 2)
+        usd = round(float(hist["Close"].iloc[-1]), 2)
 
-        eurusd = yf.Ticker("EURUSD=X")
-        fx_hist = eurusd.history(period="5d")
-        if fx_hist.empty:
-            return price_usd, None
-        fx_rate = float(fx_hist["Close"].iloc[-1])
-        price_eur = round(price_usd / fx_rate, 2)
-
-        return price_usd, price_eur
+        fx = yf.Ticker("EURUSD=X").history(period="5d")
+        if fx.empty:
+            return usd, None
+        return usd, round(usd / float(fx["Close"].iloc[-1]), 2)
     except Exception as e:
         print(f"Erro Brent: {e}")
         return None, None
 
 
-PRECO_MIN = 0.9   # €/L — abaixo disto não é um preço ao litro válido
-PRECO_MAX = 3.5   # €/L — acima disto também não
-
-
 def parse_preco(txt):
-    """Extrai float de um texto; devolve None se fora do intervalo válido de preço."""
     m = re.search(r"(\d+[.,]\d+)", txt)
     if m:
         val = round(float(m.group(1).replace(",", ".")), 3)
@@ -45,55 +39,44 @@ def parse_preco(txt):
     return None
 
 
-def first_valid_price(matches_iter):
-    """Dada uma lista de strings candidatas, devolve o primeiro valor válido."""
-    for txt in matches_iter:
+def primeiro_valido(candidatos):
+    for txt in candidatos:
         val = parse_preco(txt)
         if val is not None:
             return val
     return None
 
 
-def get_pt_fuel_prices():
-    """
-    Scrape preços semanais PT de caetano.pt.
-    A página publica uma tabela com Gasolina 95 e Gasóleo todas as semanas.
-    Filtramos por intervalo válido (0.9–3.5 €/L) para evitar apanhar
-    valores como descontos ISP (ex: 7,55 cêntimos/L).
-    """
-    gasolina95 = None
-    gasoleo = None
+def get_precos_pt():
+    gasolina95 = gasoleo = None
     try:
-        headers = {"User-Agent": "Mozilla/5.0"}
-        r = requests.get(CAETANO_URL, headers=headers, timeout=15)
+        r = requests.get(CAETANO_URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=15)
         r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
 
-        # Método 1: linhas de tabela — filtra pelo intervalo válido
         for row in soup.find_all("tr"):
             cells = row.find_all("td")
-            if len(cells) >= 2:
-                label = cells[0].get_text(strip=True).lower()
-                val = parse_preco(cells[1].get_text(strip=True))
-                if val is None:
-                    continue
-                if ("gasolina 95" in label or "gasolina95" in label) and gasolina95 is None:
-                    gasolina95 = val
-                elif ("gasóleo" in label or "gasoleo" in label or "diesel" in label) and gasoleo is None:
-                    gasoleo = val
+            if len(cells) < 2:
+                continue
+            label = cells[0].get_text(strip=True).lower()
+            val = parse_preco(cells[1].get_text(strip=True))
+            if val is None:
+                continue
+            if ("gasolina 95" in label or "gasolina95" in label) and gasolina95 is None:
+                gasolina95 = val
+            elif ("gasóleo" in label or "gasoleo" in label or "diesel" in label) and gasoleo is None:
+                gasoleo = val
 
-        # Método 2: regex no texto completo — apanha TODOS os números e filtra por intervalo
         if gasolina95 is None or gasoleo is None:
             texto = soup.get_text()
             if gasolina95 is None:
-                candidatos = re.findall(r"gasolina\s*95[^\n]{0,40}?(\d+[.,]\d+)", texto, re.IGNORECASE)
-                gasolina95 = first_valid_price(candidatos)
+                gasolina95 = primeiro_valido(
+                    re.findall(r"gasolina\s*95[^\n]{0,40}?(\d+[.,]\d+)", texto, re.IGNORECASE))
             if gasoleo is None:
-                candidatos = re.findall(r"gas[oó]leo[^\n]{0,40}?(\d+[.,]\d+)", texto, re.IGNORECASE)
-                gasoleo = first_valid_price(candidatos)
-
+                gasoleo = primeiro_valido(
+                    re.findall(r"gas[oó]leo[^\n]{0,40}?(\d+[.,]\d+)", texto, re.IGNORECASE))
     except Exception as e:
-        print(f"Erro ao obter preços PT: {e}")
+        print(f"Erro precos PT: {e}")
 
     return gasolina95, gasoleo
 
@@ -105,10 +88,7 @@ def get_fallback(cursor):
         ORDER BY data DESC
         LIMIT 1
     """)
-    row = cursor.fetchone()
-    if row:
-        return row
-    return None, None, None, None
+    return cursor.fetchone() or (None, None, None, None)
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -117,25 +97,20 @@ cursor = conn.cursor()
 hoje = date.today()
 
 brent_usd, brent_eur = get_brent_price()
-gasolina95, gasoleo = get_pt_fuel_prices()
+gasolina95, gasoleo = get_precos_pt()
 
-# FALLBACK se algum valor falhou
 fb_brent_usd, fb_brent_eur, fb_gasolina, fb_gasoleo = get_fallback(cursor)
-
 if brent_usd is None and fb_brent_usd:
     brent_usd, brent_eur = fb_brent_usd, fb_brent_eur
     print(f"Fallback Brent: {brent_usd} USD")
-
 if gasolina95 is None and fb_gasolina:
     gasolina95 = fb_gasolina
-    print(f"Fallback Gasolina95: {gasolina95} EUR/L")
-
+    print(f"Fallback Gasolina95: {gasolina95}")
 if gasoleo is None and fb_gasoleo:
     gasoleo = fb_gasoleo
-    print(f"Fallback Gasóleo: {gasoleo} EUR/L")
+    print(f"Fallback Gasoleo: {gasoleo}")
 
 cursor.execute("DELETE FROM combustivel_precos WHERE data = %s", (hoje,))
-
 cursor.execute("""
     INSERT INTO combustivel_precos (data, brent_usd, brent_eur, gasolina95, gasoleo)
     VALUES (%s, %s, %s, %s, %s)
@@ -148,4 +123,4 @@ cursor.execute("""
 
 conn.commit()
 conn.close()
-print(f"Combustível: Brent={brent_usd} USD / {brent_eur} EUR | Gasolina95={gasolina95} | Gasóleo={gasoleo} ({hoje})")
+print(f"Combustivel: Brent={brent_usd}$ / {brent_eur}EUR | G95={gasolina95} | Gasoleo={gasoleo} ({hoje})")

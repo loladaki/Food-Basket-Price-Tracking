@@ -7,10 +7,7 @@ from datetime import date
 
 from playwright.sync_api import sync_playwright
 
-MAX_VARIACAO_PCT = 60   # variacao maxima (%) face a mediana historica antes de rejeitar o valor
-
-
-# PRODUTOS
+MAX_VARIACAO = 60          # % de desvio face a mediana recente a partir do qual descarto o valor
 
 produtos = {
     "arroz": "https://www.pingodoce.pt/home/produtos/mercearia/arroz-massa-e-leguminosas/arroz/arroz-carolino-pingo-doce-918813.html?",
@@ -36,20 +33,15 @@ produtos = {
 }
 
 
-# EXTRAÇÃO DE PREÇOS
-
 def parse_price(text):
     if not text:
         return None
-    match = re.search(r"(\d+[,\.]\d+)", text.strip())
-    if match:
-        return float(match.group(1).replace(",", "."))
-    return None
+    m = re.search(r"(\d+[,\.]\d+)", text.strip())
+    return float(m.group(1).replace(",", ".")) if m else None
 
 
 def get_price_info(page, url):
-    preco = None
-    pvpr = None
+    preco = pvpr = None
 
     page.goto(url, wait_until="domcontentloaded", timeout=30000)
     try:
@@ -59,30 +51,23 @@ def get_price_info(page, url):
 
     scope = page.query_selector(".product-detail") or page
 
-    for selector in [
-        ".prices .sales .value",
-        ".prices .price-container",
-        ".prices .price",
-        ".prices",
-    ]:
+    for selector in [".prices .sales .value", ".prices .price-container",
+                     ".prices .price", ".prices"]:
         el = scope.query_selector(selector)
         if el:
             preco = parse_price(el.inner_text())
             if preco:
                 break
 
+    # alguns frescos so mostram o preco no formato "X,XX €/Kg"
     if not preco:
         txt = scope.inner_text() if scope else page.inner_text()
-        match = re.search(r"(\d+[,\.]\d+)\s*[€E]\s*/\s*(Kg|kg|KG|L|l|Un|UN|un)", txt)
-        if match:
-            preco = float(match.group(1).replace(",", "."))
+        m = re.search(r"(\d+[,\.]\d+)\s*[€E]\s*/\s*(Kg|kg|KG|L|l|Un|UN|un)", txt)
+        if m:
+            preco = float(m.group(1).replace(",", "."))
 
-    for selector in [
-        ".prices .list .value",
-        ".prices .strike-through .value",
-        ".prices del",
-        ".prices s",
-    ]:
+    for selector in [".prices .list .value", ".prices .strike-through .value",
+                     ".prices del", ".prices s"]:
         el = scope.query_selector(selector)
         if el:
             pvpr = parse_price(el.inner_text())
@@ -92,17 +77,13 @@ def get_price_info(page, url):
     if pvpr and preco and pvpr <= preco:
         pvpr = None
 
-    desconto_percent = None
-    desconto_euros = None
-
+    desconto_percent = desconto_euros = None
     if preco and pvpr and pvpr > preco:
         desconto_euros = round(pvpr - preco, 2)
         desconto_percent = round((desconto_euros / pvpr) * 100, 2)
 
     return preco, pvpr, desconto_percent, desconto_euros
 
-
-# FALLBACK: buscar o ultimo preco conhecido no Supabase
 
 def get_fallback(cursor, produto, supermercado):
     cursor.execute("""
@@ -118,10 +99,7 @@ def get_fallback(cursor, produto, supermercado):
     return None, None, None, None
 
 
-# VALOR DE REFERENCIA: mediana dos ultimos N valores (robusta a outliers)
-# 'coluna' e' um nome interno controlado ('preco' ou 'pvpr'), nunca input externo.
-
-def get_referencia(cursor, produto, supermercado, coluna, n=14):
+def mediana_recente(cursor, produto, supermercado, coluna, n=14):
     cursor.execute(f"""
         SELECT {coluna}
         FROM cabaz_supabase
@@ -133,86 +111,66 @@ def get_referencia(cursor, produto, supermercado, coluna, n=14):
     return statistics.median(vals) if vals else None
 
 
-# LIGAR AO SUPABASE antes do scraping para ter fallback disponivel
-
 DATABASE_URL = os.getenv("DATABASE_URL")
 conn = psycopg2.connect(DATABASE_URL)
 cursor = conn.cursor()
 hoje = date.today()
-
-
-# RECOLHER OS DADOS
 
 dados = []
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
     context = browser.new_context(
-        user_agent=(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/123.0.0.0 Safari/537.36"
-        ),
+        user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/123.0.0.0 Safari/537.36"),
         locale="pt-PT",
     )
     page = context.new_page()
 
     for produto, url in produtos.items():
-
         preco, pvpr, desconto_percent, desconto_euros = None, None, None, None
-
         try:
             preco, pvpr, desconto_percent, desconto_euros = get_price_info(page, url)
         except Exception as e:
             print(f"Erro em '{produto}': {e}")
 
-        # FALLBACK: se o scraping falhou usar o preco do dia anterior
         if not preco:
             preco, pvpr, desconto_percent, desconto_euros = get_fallback(cursor, produto, "pingodoce")
             if preco is not None:
-                print(f"Fallback usado para '{produto}' -- preco anterior: {preco:.2f} EUR")
+                print(f"Fallback '{produto}': {preco:.2f} EUR")
             else:
-                print(f"Atencao: sem preco e sem fallback para '{produto}' -- ignorado")
+                print(f"Sem dados para '{produto}', ignorado")
                 continue
         else:
-            # FAILSAFE: validar preco e pvpr contra a mediana historica de cada um.
-            ref_preco = get_referencia(cursor, produto, "pingodoce", "preco")
-            ref_pvpr  = get_referencia(cursor, produto, "pingodoce", "pvpr")
-            suspeito = None
-            if ref_preco:
-                var = abs(preco - ref_preco) / ref_preco * 100
-                if var > MAX_VARIACAO_PCT:
-                    suspeito = f"preco {preco:.2f} vs ref {ref_preco:.2f} ({var:.0f}%)"
-            if suspeito is None and pvpr is not None and ref_pvpr:
-                var = abs(pvpr - ref_pvpr) / ref_pvpr * 100
-                if var > MAX_VARIACAO_PCT:
-                    suspeito = f"pvpr {pvpr:.2f} vs ref {ref_pvpr:.2f} ({var:.0f}%)"
-            if suspeito is not None:
+            ref_preco = mediana_recente(cursor, produto, "pingodoce", "preco")
+            ref_pvpr = mediana_recente(cursor, produto, "pingodoce", "pvpr")
+            fora = None
+            if ref_preco and abs(preco - ref_preco) / ref_preco * 100 > MAX_VARIACAO:
+                fora = f"preco {preco:.2f} (mediana {ref_preco:.2f})"
+            elif pvpr and ref_pvpr and abs(pvpr - ref_pvpr) / ref_pvpr * 100 > MAX_VARIACAO:
+                fora = f"pvpr {pvpr:.2f} (mediana {ref_pvpr:.2f})"
+            if fora:
                 fb = get_fallback(cursor, produto, "pingodoce")
                 if fb[0] is not None:
-                    print(f"Valor SUSPEITO '{produto}' -- {suspeito}. A usar valores anteriores.")
+                    print(f"'{produto}' fora do normal ({fora}), uso valor anterior")
                     preco, pvpr, desconto_percent, desconto_euros = fb
 
         dados.append({
-            "produto":          produto,
-            "preco":            preco,
-            "pvpr":             pvpr,
+            "produto": produto,
+            "preco": preco,
+            "pvpr": pvpr,
             "desconto_percent": desconto_percent,
-            "desconto_euros":   desconto_euros,
-            "supermercado":     "pingodoce"
+            "desconto_euros": desconto_euros,
+            "supermercado": "pingodoce"
         })
-
         time.sleep(1)
 
     browser.close()
 
 
-# GUARDAR NA BASE DE DADOS
-
-cursor.execute("""
-    DELETE FROM cabaz_supabase
-    WHERE data = %s AND supermercado = %s
-""", (hoje, "pingodoce"))
+cursor.execute("DELETE FROM cabaz_supabase WHERE data = %s AND supermercado = %s",
+               (hoje, "pingodoce"))
 
 for item in dados:
     cursor.execute("""
@@ -220,17 +178,9 @@ for item in dados:
         (data, supermercado, produto, preco, pvpr, desconto_percent, desconto_euros)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (data, produto, supermercado) DO NOTHING
-    """, (
-        hoje,
-        item["supermercado"],
-        item["produto"],
-        item["preco"],
-        item["pvpr"],
-        item["desconto_percent"],
-        item["desconto_euros"]
-    ))
+    """, (hoje, item["supermercado"], item["produto"], item["preco"],
+          item["pvpr"], item["desconto_percent"], item["desconto_euros"]))
 
 conn.commit()
 conn.close()
-
-print(f"Pingo Doce: {len(dados)}/20 produtos guardados ({hoje})")
+print(f"Pingo Doce: {len(dados)}/20 guardados ({hoje})")
