@@ -166,6 +166,7 @@ canvas{max-height:280px}
     <a href="#p4">Histórico</a>
     <a href="#p5">Onde comprar</a>
     <a href="#p6">Combustível vs Cabaz</a>
+    <a href="#p7">Inflação</a>
   </nav>
   <div class="side-summary" id="side-summary"></div>
   <div class="side-foot">
@@ -352,6 +353,19 @@ canvas{max-height:280px}
   </div>
 </div>
 
+<div class="page" id="p7">
+  <div class="page-header">
+    <h2>Inflação: cabaz vs oficial</h2>
+    <p>O que estes 20 produtos fizeram desde que começámos a medir, ao lado da inflação que o INE reporta.</p>
+  </div>
+  <div class="kpi-row" id="infl-kpis" style="grid-template-columns:repeat(3,1fr)"></div>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">Comparação (taxa anualizada)</div><canvas id="chart-inflacao" style="max-height:260px"></canvas></div>
+    <div class="card"><div class="card-title">Inflação homóloga oficial (INE)</div><table class="tbl" id="tabela-ine"></table></div>
+  </div>
+  <div class="card" id="infl-nota" style="margin-top:6px;font-size:13px;color:var(--soft);line-height:1.65"></div>
+</div>
+
 <footer class="colophon">
   Recolha diária no Continente, Auchan e Pingo Doce (zona do Porto), com Brent e combustíveis. Projeto pessoal.
 </footer>
@@ -390,6 +404,68 @@ setInterval(checkRefresh,60*60*1000); // check every hour
 
 function destroyChart(id){if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id];}}
 
+// custo medio do cabaz num dia (media dos supermercados presentes)
+function basketAvg(dt){
+  const ss=[...new Set(ALL.filter(r=>r.data===dt).map(r=>r.supermercado))];
+  if(!ss.length)return null;
+  const tot=ss.map(s=>ALL.filter(r=>r.data===dt&&r.supermercado===s).reduce((a,b)=>a+(b.preco||0),0));
+  return tot.reduce((a,b)=>a+b,0)/tot.length;
+}
+
+// inflacao homologa oficial (fonte: INE / Banco de Portugal - BPstat). Atualizar mensalmente.
+const INE={
+  homologa:[['Jan 2026',1.9],['Fev 2026',2.1],['Mar 2026',2.7],['Mai 2026',3.3],['Jul 2026',3.0]],
+  geralAtual:3.0, geralMes:'Jul 2026',
+  alimentar:6.6, alimentarMes:'Fev 2026'
+};
+
+function renderInflacao(){
+  if(!ALL.length)return;
+  const cc=getChartColors();
+  const a=basketAvg(DATAS[0]), b=basketAvg(HOJE);
+  if(a==null||b==null)return;
+  const per=(b-a)/a*100;
+  const dias=(new Date(HOJE)-new Date(DATAS[0]))/864e5;
+  const anual=dias>0?(Math.pow(b/a,365/dias)-1)*100:0;
+  const mesIni=new Date(DATAS[0]).toLocaleDateString('pt-PT',{month:'long',year:'numeric'});
+  const sign=v=>(v>0?'+':'')+v.toFixed(1).replace('.',',')+'%';
+  const cor=v=>v>0.1?'var(--danger)':v<-0.1?'var(--success)':'var(--muted)';
+
+  document.getElementById('infl-kpis').innerHTML=`
+    <div class="kpi-card"><div class="kpi-label">Cabaz medido (desde ${mesIni})</div>
+      <div class="kpi-val" style="color:${cor(per)}">${sign(per)}</div>
+      <div class="kpi-badge">anualizado ${sign(anual)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">INE — inflação geral (${INE.geralMes})</div>
+      <div class="kpi-val">${sign(INE.geralAtual)}</div>
+      <div class="kpi-badge">homóloga, IPC total</div></div>
+    <div class="kpi-card"><div class="kpi-label">INE — alimentar (${INE.alimentarMes})</div>
+      <div class="kpi-val">${sign(INE.alimentar)}</div>
+      <div class="kpi-badge">bens alimentares não transformados</div></div>`;
+
+  destroyChart('inflacao');
+  CHARTS['inflacao']=new Chart(document.getElementById('chart-inflacao'),{
+    type:'bar',
+    data:{labels:['Cabaz (anualizado)','INE geral','INE alimentar'],
+      datasets:[{data:[+anual.toFixed(1),INE.geralAtual,INE.alimentar],
+        backgroundColor:['#7a76c2','#5b83bd','#d08a52'],borderRadius:4}]},
+    options:{responsive:true,plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:ctx=>sign(ctx.raw)}}},
+      scales:{x:{grid:{display:false},ticks:{color:cc.tick}},
+        y:{grid:{color:cc.grid},ticks:{color:cc.tick,callback:v=>v+'%'}}}}
+  });
+
+  let h='<thead><tr><th>Mês</th><th>IPC homólogo</th></tr></thead><tbody>';
+  INE.homologa.forEach(([m,v])=>h+=`<tr><td>${m}</td><td>${sign(v)}</td></tr>`);
+  document.getElementById('tabela-ine').innerHTML=h+'</tbody>';
+
+  document.getElementById('infl-nota').innerHTML=`
+    <b>Como ler isto.</b> O número do cabaz mede apenas estes 20 produtos e só desde ${mesIni} — um período curto e
+    muito sazonal (a fruta e os legumes de verão puxam os preços para baixo) e usando sempre o preço mais barato entre
+    os três supermercados, promoções incluídas. Por isso pode dar negativo mesmo com a inflação oficial positiva.
+    O INE mede o cabaz completo do país em variação homóloga (face ao mesmo mês do ano anterior). Uma comparação
+    verdadeiramente justa exige um ano inteiro de recolha — que ainda não temos. Fontes: INE e Banco de Portugal (BPstat).`;
+}
+
 function getChartColors(){
   const dark=document.documentElement.getAttribute('data-theme')==='dark';
   return dark?{grid:'#2b3038',tick:'#8b929c'}:{grid:'#eceef1',tick:'#8a9099'};
@@ -399,7 +475,7 @@ function toggleTheme(){
   const dark=document.documentElement.getAttribute('data-theme')==='dark';
   document.documentElement.setAttribute('data-theme',dark?'light':'dark');
   localStorage.setItem('tema',dark?'light':'dark');
-  if(ALL.length){renderPage1();renderComparacao();renderPromocoes();renderHistorico();renderOndeComprar();renderEnergia();}
+  if(ALL.length){renderPage1();renderComparacao();renderPromocoes();renderHistorico();renderOndeComprar();renderEnergia();renderInflacao();}
 }
 
 function winnerInfo(prices){
@@ -488,6 +564,7 @@ async function loadData(){
   renderPromocoes();
   renderHistorico();
   renderOndeComprar();
+  renderInflacao();
   await loadFuelData();
   checkRefresh();
 }
