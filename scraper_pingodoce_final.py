@@ -116,6 +116,9 @@ conn = psycopg2.connect(DATABASE_URL)
 cursor = conn.cursor()
 hoje = date.today()
 
+cursor.execute("ALTER TABLE cabaz_supabase ADD COLUMN IF NOT EXISTS is_fallback boolean DEFAULT false")
+conn.commit()
+
 dados = []
 
 with sync_playwright() as p:
@@ -130,6 +133,7 @@ with sync_playwright() as p:
 
     for produto, url in produtos.items():
         preco, pvpr, desconto_percent, desconto_euros = None, None, None, None
+        is_fallback = False
         try:
             preco, pvpr, desconto_percent, desconto_euros = get_price_info(page, url)
         except Exception as e:
@@ -138,6 +142,7 @@ with sync_playwright() as p:
         if not preco:
             preco, pvpr, desconto_percent, desconto_euros = get_fallback(cursor, produto, "pingodoce")
             if preco is not None:
+                is_fallback = True
                 print(f"Fallback '{produto}': {preco:.2f} EUR")
             else:
                 print(f"Sem dados para '{produto}', ignorado")
@@ -153,6 +158,7 @@ with sync_playwright() as p:
             if fora:
                 fb = get_fallback(cursor, produto, "pingodoce")
                 if fb[0] is not None:
+                    is_fallback = True
                     print(f"'{produto}' fora do normal ({fora}), uso valor anterior")
                     preco, pvpr, desconto_percent, desconto_euros = fb
 
@@ -162,6 +168,7 @@ with sync_playwright() as p:
             "pvpr": pvpr,
             "desconto_percent": desconto_percent,
             "desconto_euros": desconto_euros,
+            "is_fallback": is_fallback,
             "supermercado": "pingodoce"
         })
         time.sleep(1)
@@ -175,11 +182,11 @@ cursor.execute("DELETE FROM cabaz_supabase WHERE data = %s AND supermercado = %s
 for item in dados:
     cursor.execute("""
         INSERT INTO cabaz_supabase
-        (data, supermercado, produto, preco, pvpr, desconto_percent, desconto_euros)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        (data, supermercado, produto, preco, pvpr, desconto_percent, desconto_euros, is_fallback)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (data, produto, supermercado) DO NOTHING
     """, (hoje, item["supermercado"], item["produto"], item["preco"],
-          item["pvpr"], item["desconto_percent"], item["desconto_euros"]))
+          item["pvpr"], item["desconto_percent"], item["desconto_euros"], item["is_fallback"]))
 
 conn.commit()
 conn.close()
