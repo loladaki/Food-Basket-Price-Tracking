@@ -314,6 +314,12 @@ canvas{max-height:280px}
     <h2>Combustível vs Cabaz</h2>
     <p>Como o preço do petróleo e dos combustíveis se relaciona com o custo do cabaz.</p>
   </div>
+  <div class="card" style="font-size:13px;color:var(--soft);line-height:1.65;margin-bottom:16px">
+    <b>Contexto.</b> Este projeto nasceu por causa da guerra do Irão (começou a 28 de fevereiro de 2026). Temos o
+    preço do petróleo e dos combustíveis desde <b>antes</b> do conflito, mas só começámos a seguir o cabaz alimentar
+    a <b>21 de março</b> — já depois de a guerra começar. Não temos, por isso, preços dos alimentos de antes da guerra:
+    não é possível provar se foi o conflito a fazê-los subir. O que se vê aqui é a evolução a partir desse ponto.
+  </div>
   <div class="kpi-row" id="energia-kpis" style="grid-template-columns:repeat(4,1fr)">
     <div class="kpi-card"><div class="kpi-label">Brent Crude</div><div class="kpi-val" id="kpi-brent-usd">—</div><div class="kpi-badge badge-neutral" id="kpi-brent-eur">— €/barril</div></div>
     <div class="kpi-card"><div class="kpi-label">Gasolina 95 (PT)</div><div class="kpi-val" id="kpi-gasolina">—</div><div class="kpi-badge badge-neutral">€/litro</div></div>
@@ -459,11 +465,14 @@ function renderInflacao(){
   document.getElementById('tabela-ine').innerHTML=h+'</tbody>';
 
   document.getElementById('infl-nota').innerHTML=`
-    <b>Como ler isto.</b> O número do cabaz mede apenas estes 20 produtos e só desde ${mesIni} — um período curto e
-    muito sazonal (a fruta e os legumes de verão puxam os preços para baixo) e usando sempre o preço mais barato entre
-    os três supermercados, promoções incluídas. Por isso pode dar negativo mesmo com a inflação oficial positiva.
-    O INE mede o cabaz completo do país em variação homóloga (face ao mesmo mês do ano anterior). Uma comparação
-    verdadeiramente justa exige um ano inteiro de recolha — que ainda não temos. Fontes: INE e Banco de Portugal (BPstat).`;
+    <b>Como ler isto.</b> Seguimos sobretudo produtos de <b>marca branca</b> e escolhemos sempre o preço mais barato
+    entre os três supermercados, <b>com promoções incluídas</b> — e há promoções quase todas as semanas, o que explica
+    os dentes-de-serra nos gráficos. Como nem toda a gente compra marca branca, o ideal seria ter três referências por
+    alimento (uma de marca branca e duas de marca) e fazer uma média ponderada; por agora é uma limitação assumida.<br><br>
+    O número cobre só estes 20 produtos e apenas desde ${mesIni} — período curto e muito sazonal (a fruta e os legumes
+    de verão puxam os preços para baixo), por isso pode dar negativo mesmo com a inflação oficial positiva. O INE mede o
+    cabaz completo do país em variação homóloga (face ao mesmo mês do ano anterior); uma comparação justa exige um ano
+    inteiro de recolha, que ainda não temos. Fontes: INE e Banco de Portugal (BPstat).`;
 }
 
 function getChartColors(){
