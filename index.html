@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>O Cabaz — preços de supermercado em Portugal</title>
+<title>CabazAlimentarPT — preços de supermercado em Portugal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a9d6e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8h16l-1.3 10.6a2 2 0 0 1-2 1.4H7.3a2 2 0 0 1-2-1.4Z'/%3E%3Cpath d='M8.5 8 12 3l3.5 5'/%3E%3C/svg%3E">
+<script>(function(){var s=localStorage.getItem('tema');var d=s?s==='dark':matchMedia('(prefers-color-scheme:dark)').matches;document.documentElement.setAttribute('data-theme',d?'dark':'light');})();</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,10 +14,18 @@
 :root{
   --bg:#f6f7f8;--surface:#ffffff;--surface2:#eef0f2;--border:#e2e5e9;--border-strong:#cfd4d9;
   --text:#1a1d21;--muted:#727880;--soft:#474c53;
-  --cont:#16a34a;--cont-dim:rgba(22,163,74,.1);
-  --auch:#c2560a;--auch-dim:rgba(194,86,10,.1);
-  --ping:#1d4ed8;--ping-dim:rgba(29,78,216,.1);
-  --gold:#b7791f;--danger:#dc2626;--success:#16a34a;--accent:#3730a3;
+  --cont:#4a9d6e;--cont-dim:rgba(74,157,110,.14);
+  --auch:#d08a52;--auch-dim:rgba(208,138,82,.14);
+  --ping:#5b83bd;--ping-dim:rgba(91,131,189,.14);
+  --gold:#b7913f;--danger:#c76b5a;--success:#4a9d6e;--accent:#7a76c2;
+}
+[data-theme="dark"]{
+  --bg:#14161a;--surface:#1b1e24;--surface2:#242932;--border:#2b3038;--border-strong:#3a404a;
+  --text:#e6e8ec;--muted:#8b929c;--soft:#b7bdc6;
+  --cont:#5cb682;--cont-dim:rgba(92,182,130,.16);
+  --auch:#e0a06a;--auch-dim:rgba(224,160,106,.16);
+  --ping:#7ba0d8;--ping-dim:rgba(123,160,216,.16);
+  --gold:#cda759;--danger:#d98a78;--success:#5cb682;--accent:#a29de0;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -31,6 +41,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .navlinks a:hover{color:var(--text);background:var(--surface2)}
 .navlinks a.on{color:var(--text);background:var(--surface2)}
 .last-update{margin-left:auto;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+.theme-toggle{flex:none;background:none;border:1px solid var(--border);border-radius:6px;width:30px;height:30px;
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);padding:0}
+.theme-toggle:hover{color:var(--text);border-color:var(--border-strong)}
+.theme-toggle svg{width:15px;height:15px}
+.theme-toggle .i-sun{display:none}
+[data-theme="dark"] .theme-toggle .i-moon{display:none}
+[data-theme="dark"] .theme-toggle .i-sun{display:inline-block}
 
 .refresh-banner{display:none;align-items:center;gap:12px;justify-content:center;padding:8px;
   background:#fff7e6;border-bottom:1px solid var(--border);font-size:13px;color:var(--soft)}
@@ -48,9 +65,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .grid-65{display:grid;grid-template-columns:1.7fr 1fr;gap:14px;margin-bottom:14px}
 
 .card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:14px 16px}
-.card-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
-.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:12px 14px}
-.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.card-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.kpi-label{font-size:12.5px;color:var(--muted);margin-bottom:8px}
 .kpi-val{font-size:23px;font-weight:600;letter-spacing:-.02em;line-height:1}
 .kpi-badge{display:inline-block;font-size:11px;font-weight:500;margin-top:8px;color:var(--muted)}
 .badge-up{color:var(--danger)}
@@ -58,22 +75,22 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .badge-neutral{color:var(--muted)}
 
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
-.tbl th{font-size:10.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;
-  padding:6px 10px;border-bottom:1px solid var(--border-strong);text-align:left;white-space:nowrap}
-.tbl td{padding:6px 10px;border-bottom:1px solid var(--border);color:var(--text)}
+.tbl th{font-size:12px;font-weight:500;color:var(--muted);
+  padding:8px 10px;border-bottom:1px solid var(--border-strong);text-align:left;white-space:nowrap}
+.tbl td{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text)}
 .tbl tr:last-child td{border-bottom:none}
 .tbl tr:hover td{background:var(--surface2)}
 .cheaper{color:var(--cont);font-weight:600}
 .pricier{color:var(--muted)}
-.winner-badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:3px;font-weight:500}
-.w-cont{background:var(--cont-dim);color:var(--cont)}
-.w-auch{background:var(--auch-dim);color:var(--auch)}
-.w-ping{background:var(--ping-dim);color:var(--ping)}
-.w-igual{background:var(--surface2);color:var(--muted)}
-.sup-tag{font-size:11px;font-weight:500;padding:1px 7px;border-radius:3px}
-.sup-cont{background:var(--cont-dim);color:var(--cont)}
-.sup-auch{background:var(--auch-dim);color:var(--auch)}
-.sup-ping{background:var(--ping-dim);color:var(--ping)}
+.winner-badge{font-weight:600}
+.w-cont{color:var(--cont)}
+.w-auch{color:var(--auch)}
+.w-ping{color:var(--ping)}
+.w-igual{color:var(--muted)}
+.sup-tag{font-weight:500}
+.sup-cont{color:var(--cont)}
+.sup-auch{color:var(--auch)}
+.sup-ping{color:var(--ping)}
 .fallback-icon{font-size:12px;cursor:help;opacity:.7}
 
 .filter-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
@@ -128,16 +145,20 @@ canvas{max-height:280px}
 </div>
 
 <nav class="sitenav" id="topo">
-  <a class="brand" href="#topo">Cabaz<span> · PT</span></a>
+  <a class="brand" href="#topo">CabazAlimentar<span>PT</span></a>
   <div class="navlinks">
     <a href="#p1">Hoje</a>
     <a href="#p2">Comparar</a>
     <a href="#p3">Promoções</a>
     <a href="#p4">Histórico</a>
     <a href="#p5">Onde comprar</a>
-    <a href="#p6">Energia</a>
+    <a href="#p6">Combustível vs Cabaz</a>
   </div>
   <span class="last-update" id="last-update">a carregar…</span>
+  <button class="theme-toggle" onclick="toggleTheme()" title="Alternar tema" aria-label="Alternar tema">
+    <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+    <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5.6 5.6 4.2 4.2M19.8 19.8l-1.4-1.4M18.4 5.6l1.4-1.4M4.2 19.8l1.4-1.4"/></svg>
+  </button>
 </nav>
 
 <!-- PAGE 1 -->
@@ -268,8 +289,8 @@ canvas{max-height:280px}
 
 <div class="page" id="p6">
   <div class="page-header">
-    <h2>Energia & Cabaz</h2>
-    <p>Correlação entre o preço do petróleo/combustíveis e o custo do cabaz alimentar</p>
+    <h2>Combustível vs Cabaz</h2>
+    <p>Como o preço do petróleo e dos combustíveis se relaciona com o custo do cabaz.</p>
   </div>
   <div class="kpi-row" id="energia-kpis" style="grid-template-columns:repeat(4,1fr)">
     <div class="kpi-card"><div class="kpi-label">Brent Crude</div><div class="kpi-val" id="kpi-brent-usd">—</div><div class="kpi-badge badge-neutral" id="kpi-brent-eur">— €/barril</div></div>
@@ -320,7 +341,7 @@ const SUPA_FUEL_URL = 'https://lfqhvioqgvksqrdxfgyy.supabase.co/rest/v1/combusti
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmcWh2aW9xZ3Zrc3FyZHhmZ3l5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDk3MDgsImV4cCI6MjA5MDEyNTcwOH0.x3oNaD6_YbWeknI3RQBldZ-MhIMr-I1k1dVFit5dit0';
 
 let ALL=[], FUEL=[], HOJE='', DATAS=[], CHARTS={};
-const SUP_COLOR={continente:'#16a34a',auchan:'#c2560a',pingodoce:'#1d4ed8'};
+const SUP_COLOR={continente:'#4a9d6e',auchan:'#d08a52',pingodoce:'#5b83bd'};
 const SUP_LABEL={continente:'Continente',auchan:'Auchan',pingodoce:'Pingo Doce'};
 const fmt=v=>v!=null?v.toFixed(2)+' €':'—';
 const fmtP=v=>v!=null?v.toFixed(1)+'%':'—';
@@ -347,7 +368,15 @@ setInterval(checkRefresh,60*60*1000); // check every hour
 function destroyChart(id){if(CHARTS[id]){CHARTS[id].destroy();delete CHARTS[id];}}
 
 function getChartColors(){
-  return{grid:'#eceef1',tick:'#8a9099'};
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  return dark?{grid:'#2b3038',tick:'#8b929c'}:{grid:'#eceef1',tick:'#8a9099'};
+}
+
+function toggleTheme(){
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',dark?'light':'dark');
+  localStorage.setItem('tema',dark?'light':'dark');
+  if(ALL.length){renderPage1();renderComparacao();renderPromocoes();renderHistorico();renderOndeComprar();renderEnergia();}
 }
 
 function winnerInfo(prices){
@@ -418,7 +447,8 @@ async function loadData(){
   if(!ALL.length){document.getElementById('loading1').innerHTML='<p style="color:var(--danger)">Sem dados.</p>';return;}
   HOJE=ALL.reduce((a,b)=>a.data>b.data?a:b).data;
   DATAS=[...new Set(ALL.map(d=>d.data))].sort();
-  document.getElementById('last-update').textContent='última recolha · '+HOJE;
+  const _d=HOJE.split('-');
+  document.getElementById('last-update').textContent='Atualizado '+_d[2]+'/'+_d[1]+'/'+_d[0];
 
   // populate produto selector
   const prods=[...new Set(ALL.map(d=>d.produto))].sort();
@@ -544,9 +574,9 @@ function renderEnergia(){
     data:{
       labels:allChartDates,
       datasets:[
-        {label:'Brent (USD/barril)',data:brentLine,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.08)',
+        {label:'Brent (USD/barril)',data:brentLine,borderColor:'#c79a52',backgroundColor:'rgba(199,154,82,0.08)',
          yAxisID:'yBrent',tension:0.3,pointRadius:2,borderWidth:2,spanGaps:true},
-        {label:'Cabaz médio (€)',data:camazLine,borderColor:'#7c3aed',backgroundColor:'rgba(124,58,237,0.08)',
+        {label:'Cabaz médio (€)',data:camazLine,borderColor:'#7a76c2',backgroundColor:'rgba(122,118,194,0.08)',
          yAxisID:'yCabaz',tension:0.3,pointRadius:2,borderWidth:2,spanGaps:true}
       ]
     },
@@ -566,10 +596,10 @@ function renderEnergia(){
       conflitDate:CONFLITO_DATE,
       scales:{
         x:{ticks:{color:cc.tick,maxTicksLimit:12},grid:{color:cc.grid}},
-        yBrent:{position:'right',ticks:{color:'#f59e0b',callback:v=>v+'$'},grid:{display:false},
-          title:{display:true,text:'Brent USD/barril',color:'#f59e0b',font:{size:11}}},
-        yCabaz:{position:'left',ticks:{color:'#7c3aed',callback:v=>v+'€'},grid:{color:cc.grid},
-          title:{display:true,text:'Cabaz médio €',color:'#7c3aed',font:{size:11}}}
+        yBrent:{position:'right',ticks:{color:'#c79a52',callback:v=>v+'$'},grid:{display:false},
+          title:{display:true,text:'Brent USD/barril',color:'#c79a52',font:{size:11}}},
+        yCabaz:{position:'left',ticks:{color:'#7a76c2',callback:v=>v+'€'},grid:{color:cc.grid},
+          title:{display:true,text:'Cabaz médio €',color:'#7a76c2',font:{size:11}}}
       }
     }
   });
@@ -600,9 +630,9 @@ function renderEnergia(){
       data:{
         labels:allChartDates,
         datasets:[
-          {label:'Gasolina 95 (€/L)',data:gasoline95Line,borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,0.08)',
+          {label:'Gasolina 95 (€/L)',data:gasoline95Line,borderColor:'#c76b5a',backgroundColor:'rgba(199,107,90,0.08)',
            tension:0,pointRadius:0,borderWidth:2,spanGaps:false,stepped:'before'},
-          {label:'Gasóleo (€/L)',data:gasoleoLine,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.08)',
+          {label:'Gasóleo (€/L)',data:gasoleoLine,borderColor:'#5b83bd',backgroundColor:'rgba(91,131,189,0.08)',
            tension:0,pointRadius:0,borderWidth:2,spanGaps:false,stepped:'before'}
         ]
       },
@@ -632,7 +662,7 @@ function renderEnergia(){
     data:{datasets:[{
       label:'Brent vs Cabaz',
       data:scatterData,
-      backgroundColor:'rgba(124,58,237,0.5)',
+      backgroundColor:'rgba(122,118,194,0.5)',
       pointRadius:5
     }]},
     options:{
@@ -686,8 +716,8 @@ function renderEnergia(){
       datasets:[{
         label:'Pearson r',
         data:lagCorrs,
-        backgroundColor:lagCorrs.map((v,i)=>i===bestLagIdx?'rgba(124,58,237,0.8)':'rgba(124,58,237,0.3)'),
-        borderColor:lagCorrs.map((v,i)=>i===bestLagIdx?'#7c3aed':'rgba(124,58,237,0.5)'),
+        backgroundColor:lagCorrs.map((v,i)=>i===bestLagIdx?'rgba(122,118,194,0.8)':'rgba(122,118,194,0.3)'),
+        borderColor:lagCorrs.map((v,i)=>i===bestLagIdx?'#7a76c2':'rgba(122,118,194,0.5)'),
         borderWidth:1,borderRadius:4
       }]
     },
