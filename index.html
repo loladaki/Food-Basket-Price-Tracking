@@ -764,14 +764,14 @@ const endLabelsPlugin={
     if(!chart.config.options.endLabels)return;
     const {ctx}=chart;
     chart.data.datasets.forEach((ds,i)=>{
-      if(ds.borderDash)return;
+      if(!ds.borderDash)return;                 // etiqueta só na ponta da linha de previsão (extremo direito)
       const meta=chart.getDatasetMeta(i);
       if(meta.hidden)return;
       let pt=null;
       for(let k=ds.data.length-1;k>=0;k--){if(ds.data[k]!=null){pt=meta.data[k];break;}}
       if(!pt)return;
       ctx.save();ctx.fillStyle=ds.borderColor;ctx.font='600 11px Inter,sans-serif';ctx.textBaseline='middle';
-      ctx.fillText(ds.label,pt.x+8,pt.y);ctx.restore();
+      ctx.fillText(ds.label.replace('Prev. ',''),pt.x+8,pt.y);ctx.restore();
     });
   }
 };
