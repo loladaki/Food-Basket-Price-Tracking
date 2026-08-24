@@ -108,6 +108,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .export-btn{margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:5px;
   padding:5px 11px;font-size:12px;cursor:pointer;color:var(--soft);font-family:inherit}
 .export-btn:hover{border-color:var(--border-strong);color:var(--text)}
+.rangesel{display:inline-flex;gap:3px;margin-left:auto}
+.rangesel button{background:none;border:1px solid var(--border);color:var(--muted);font-size:12px;
+  padding:3px 10px;border-radius:5px;cursor:pointer;font-family:inherit}
+.rangesel button:hover{color:var(--text)}
+.rangesel button.on{background:var(--surface2);color:var(--text);border-color:var(--border-strong)}
 
 .legend{display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap}
 .leg{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
@@ -190,7 +195,15 @@ canvas{max-height:280px}
     <div class="kpi-row" id="kpi-row"></div>
     <div class="grid-65">
       <div class="card">
-        <div class="card-title">Evolução do custo total do cabaz</div>
+        <div style="display:flex;align-items:center;margin-bottom:14px">
+          <span class="card-title" style="margin-bottom:0">Evolução do custo total do cabaz</span>
+          <div class="rangesel">
+            <button data-d="30" onclick="setPeriodo(30)">1M</button>
+            <button data-d="90" onclick="setPeriodo(90)">3M</button>
+            <button data-d="180" onclick="setPeriodo(180)">6M</button>
+            <button data-d="0" class="on" onclick="setPeriodo(0)">Tudo</button>
+          </div>
+        </div>
         <div class="legend">
           <div class="leg"><div class="leg-dot" style="background:var(--cont)"></div>Continente</div>
           <div class="leg"><div class="leg-dot" style="background:var(--auch)"></div>Auchan</div>
@@ -328,8 +341,20 @@ canvas{max-height:280px}
   </div>
   <br>
   <div class="card" style="margin-bottom:12px">
-    <div class="card-title">Evolução: Brent (USD/barril) vs Cabaz médio (€)</div>
+    <div style="display:flex;align-items:center;margin-bottom:14px">
+      <span class="card-title" style="margin-bottom:0">Evolução: Brent (USD/barril) vs Cabaz médio (€)</span>
+      <div class="rangesel">
+        <button data-d="30" onclick="setPeriodo(30)">1M</button>
+        <button data-d="90" onclick="setPeriodo(90)">3M</button>
+        <button data-d="180" onclick="setPeriodo(180)">6M</button>
+        <button data-d="0" class="on" onclick="setPeriodo(0)">Tudo</button>
+      </div>
+    </div>
     <canvas id="chart-energia" height="90"></canvas>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Cronologia do conflito e impacto no Brent</div>
+    <div id="cronologia"></div>
   </div>
   <div class="grid-2">
     <div class="card">
@@ -505,6 +530,20 @@ function toggleTheme(){
   if(ALL.length){renderPage1();renderComparacao();renderPromocoes();renderHistorico();renderOndeComprar();renderEnergia();renderInflacao();}
 }
 
+// seletor de periodo (1M/3M/6M/tudo) para os graficos de evolucao
+let PERIODO=0;
+function noPeriodo(arr){
+  if(!PERIODO)return arr;
+  const cut=new Date(HOJE);cut.setDate(cut.getDate()-PERIODO);
+  const c=cut.toISOString().slice(0,10);
+  return arr.filter(d=>d>=c);
+}
+function setPeriodo(dias){
+  PERIODO=dias;
+  document.querySelectorAll('.rangesel button').forEach(b=>b.classList.toggle('on',+b.dataset.d===dias));
+  renderPage1();renderEnergia();
+}
+
 function winnerInfo(prices){
   const vals=Object.entries(prices).filter(([,v])=>v!=null);
   if(!vals.length)return{cls:'w-igual',lbl:'—',isTie:false};
@@ -597,30 +636,80 @@ async function loadData(){
 }
 
 // ── PLUGIN: LINHA VERTICAL (substitui chartjs-plugin-annotation) ─────────────
-const conflitLinePlugin={
-  id:'conflitLine',
+// eventos do conflito do Irão (datas reais de 2026)
+const EVENTOS=[
+  {data:'2026-02-28', t:'Início da guerra (EUA e Israel atacam o Irão)', tipo:'conflito'},
+  {data:'2026-03-16', t:'Petroleiro volta a cruzar o Estreito de Ormuz', tipo:'ormuz'},
+  {data:'2026-03-23', t:'Trump anuncia tréguas e negociações', tipo:'diplomacia'},
+  {data:'2026-03-27', t:'Negociações falham; Ormuz é encerrado', tipo:'ormuz'},
+  {data:'2026-04-06', t:'Ultimato de Trump ao Irão', tipo:'conflito'},
+  {data:'2026-04-07', t:'Cessar-fogo; Irão aceita reabrir Ormuz', tipo:'diplomacia'},
+  {data:'2026-06-14', t:'Fim oficial da guerra', tipo:'diplomacia'},
+  {data:'2026-06-19', t:'Tratado de paz permanente (Suíça)', tipo:'diplomacia'},
+];
+const EV_COR={conflito:'#c0392b', ormuz:'#c2560a', diplomacia:'#2f9e6e', opep:'#3b6fb5'};
+const EV_LABEL={conflito:'Conflito', ormuz:'Estreito de Ormuz', diplomacia:'Diplomacia', opep:'OPEP+'};
+
+let _evTip;
+function evTooltip(){
+  if(!_evTip){
+    _evTip=document.createElement('div');
+    _evTip.style.cssText='position:fixed;z-index:200;pointer-events:none;display:none;max-width:240px;'+
+      'background:var(--text);color:var(--bg);font-size:12px;line-height:1.45;padding:7px 10px;'+
+      'border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.28)';
+    document.body.appendChild(_evTip);
+  }
+  return _evTip;
+}
+
+// desenha marcadores numerados de eventos (usa options.eventos + options.eventoDatas)
+const eventMarkersPlugin={
+  id:'eventMarkers',
   afterDraw(chart){
-    const d=chart.config.options?.conflitDate;
-    if(!d)return;
-    const labels=chart.data.labels||[];
-    const idx=labels.indexOf(d);
-    if(idx===-1)return;
+    const evs=chart.config.options.eventos, datas=chart.config.options.eventoDatas;
+    if(!evs||!datas)return;
     const {ctx,chartArea,scales}=chart;
-    const x=scales.x.getPixelForValue(idx);
-    ctx.save();
-    ctx.beginPath();ctx.moveTo(x,chartArea.top);ctx.lineTo(x,chartArea.bottom);
-    ctx.lineWidth=2;ctx.strokeStyle='rgba(239,68,68,0.85)';ctx.setLineDash([6,4]);ctx.stroke();
-    ctx.setLineDash([]);
-    const txt='Conflito Irão · 28 Fev';
-    ctx.font='bold 11px Inter,sans-serif';
-    const tw=ctx.measureText(txt).width;
-    ctx.fillStyle='rgba(239,68,68,0.12)';ctx.fillRect(x+5,chartArea.top+4,tw+14,22);
-    ctx.strokeStyle='rgba(239,68,68,0.45)';ctx.lineWidth=1;ctx.strokeRect(x+5,chartArea.top+4,tw+14,22);
-    ctx.fillStyle='#ef4444';ctx.fillText(txt,x+12,chartArea.top+19);
-    ctx.restore();
+    const hits=[];
+    evs.forEach((ev,i)=>{
+      if(!datas.length||ev.data<datas[0]||ev.data>datas[datas.length-1])return;
+      const idx=datas.findIndex(d=>d>=ev.data);
+      if(idx===-1)return;
+      const x=scales.x.getPixelForValue(idx);
+      if(x<chartArea.left-1||x>chartArea.right+1)return;
+      const cor=EV_COR[ev.tipo]||'#888';
+      ctx.save();
+      ctx.beginPath();ctx.moveTo(x,chartArea.top+16);ctx.lineTo(x,chartArea.bottom);
+      ctx.lineWidth=1.5;ctx.strokeStyle=cor;ctx.globalAlpha=.5;ctx.setLineDash([5,4]);ctx.stroke();
+      ctx.globalAlpha=1;ctx.setLineDash([]);
+      const cy=chartArea.top+8;
+      ctx.beginPath();ctx.arc(x,cy,8,0,Math.PI*2);ctx.fillStyle=cor;ctx.fill();
+      ctx.fillStyle='#fff';ctx.font='bold 10px Inter,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(String(i+1),x,cy+.5);
+      ctx.restore();
+      hits.push({x,y:cy,ev,n:i+1});
+    });
+    chart._evHits=hits;
+    if(!chart._evBound){
+      chart._evBound=true;
+      const cv=chart.canvas;
+      cv.addEventListener('mousemove',e=>{
+        const r=cv.getBoundingClientRect();
+        const mx=e.clientX-r.left, my=e.clientY-r.top;
+        const hit=(chart._evHits||[]).find(h=>Math.abs(mx-h.x)<11&&Math.abs(my-h.y)<11);
+        const tip=evTooltip();
+        if(hit){
+          tip.innerHTML=`<b>${hit.n}. ${hit.ev.t}</b><br>${hit.ev.data.split('-').reverse().join('/')} · ${EV_LABEL[hit.ev.tipo]||''}`;
+          tip.style.display='block';
+          tip.style.left=(e.clientX+14)+'px';
+          tip.style.top=(e.clientY+14)+'px';
+          cv.style.cursor='pointer';
+        }else{tip.style.display='none';cv.style.cursor='';}
+      });
+      cv.addEventListener('mouseleave',()=>{evTooltip().style.display='none';});
+    }
   }
 };
-Chart.register(conflitLinePlugin);
+Chart.register(eventMarkersPlugin);
 
 // ── PEARSON CORRELATION ───────────────────────────────────────
 function pearsonCorr(x, y){
@@ -688,9 +777,8 @@ function renderEnergia(){
   }
 
   // All dates for main chart (basket + brent side by side)
-  const allChartDates=[...new Set([...Object.keys(camazPorDia),...fuelDates])].sort();
-  // 28 Fev é sábado — não existe nos dados. Usamos o primeiro dia disponível >= 28 Fev.
-  const CONFLITO_DATE = allChartDates.find(d=>d>='2026-02-28') || '2026-02-28';
+  const allChartDatesFull=[...new Set([...Object.keys(camazPorDia),...fuelDates])].sort();
+  const allChartDates=noPeriodo(allChartDatesFull);
   const camazLine=allChartDates.map(d=>camazPorDia[d]??null);
   const brentLine=allChartDates.map(d=>{const f=FUEL.find(r=>r.data===d);return f?.brent_usd??null;});
 
@@ -720,7 +808,7 @@ function renderEnergia(){
           }
         }},
       },
-      conflitDate:CONFLITO_DATE,
+      eventos:EVENTOS,eventoDatas:allChartDates,
       scales:{
         x:{ticks:{color:cc.tick,maxTicksLimit:12},grid:{color:cc.grid}},
         yBrent:{position:'right',ticks:{color:'#c79a52',callback:v=>v+'$'},grid:{display:false},
@@ -730,6 +818,34 @@ function renderEnergia(){
       }
     }
   });
+
+  // ── Cronologia de eventos + impacto no Brent ──────────────
+  const brentDia={};
+  FUEL.forEach(f=>{if(f.brent_usd!=null)brentDia[f.data]=f.brent_usd;});
+  const brentPerto=dstr=>{
+    const d=new Date(dstr);
+    for(let k=0;k<6;k++){const s=d.toISOString().slice(0,10);if(brentDia[s]!=null)return brentDia[s];d.setDate(d.getDate()+1);}
+    return null;
+  };
+  let cron='';
+  EVENTOS.forEach((ev,i)=>{
+    const b0=brentPerto(ev.data);
+    const dt=new Date(ev.data);dt.setDate(dt.getDate()+7);
+    const b7=brentPerto(dt.toISOString().slice(0,10));
+    let imp='<span style="color:var(--muted)">sem dados de Brent</span>';
+    if(b0&&b7){
+      const p=(b7-b0)/b0*100;
+      const cor=p>0.3?'var(--danger)':p<-0.3?'var(--success)':'var(--muted)';
+      imp=`Brent <span style="color:${cor};font-weight:600">${p>0?'+':''}${p.toFixed(1).replace('.',',')}%</span> em 7 dias`;
+    }
+    const cor=EV_COR[ev.tipo]||'#888';
+    cron+=`<div style="display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="flex:none;width:20px;height:20px;border-radius:50%;background:${cor};color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center">${i+1}</span>
+      <div style="flex:1"><div style="font-size:13px">${ev.t}</div>
+        <div style="font-size:12px;color:var(--muted)">${ev.data.split('-').reverse().join('/')} · ${imp}</div></div>
+    </div>`;
+  });
+  document.getElementById('cronologia').innerHTML=cron;
 
   // ── Chart 2: Gasolina + Gasóleo PT ────────────────────────
   // Mapa por data para lookup O(1)
@@ -769,7 +885,7 @@ function renderEnergia(){
         plugins:{
           legend:{labels:{color:cc.tick,font:{size:11}}},
         },
-        conflitDate:CONFLITO_DATE,
+        eventos:EVENTOS,eventoDatas:allChartDates,
         scales:{
           x:{ticks:{color:cc.tick,maxTicksLimit:10},grid:{color:cc.grid}},
           y:{ticks:{color:cc.tick,callback:v=>v.toFixed(3).replace('.',',')+' €'},grid:{color:cc.grid}}
@@ -946,22 +1062,23 @@ function renderPage1(){
   // Evolution chart with prediction
   const cc=getChartColors();
   const predDays=7;
+  const datasEvo=noPeriodo(datas);
   const datasets=sups.map(s=>({
     label:SUP_LABEL[s]||s,
-    data:datas.map(d=>{const r=ALL.filter(x=>x.data===d&&x.supermercado===s);return r.length?r.reduce((a,b)=>a+(b.preco||0),0):null;}),
-    borderColor:SUP_COLOR[s],backgroundColor:'transparent',tension:.3,pointRadius:3,spanGaps:true
+    data:datasEvo.map(d=>{const r=ALL.filter(x=>x.data===d&&x.supermercado===s);return r.length?r.reduce((a,b)=>a+(b.preco||0),0):null;}),
+    borderColor:SUP_COLOR[s],backgroundColor:'transparent',tension:.3,pointRadius:datasEvo.length>60?0:3,spanGaps:true
   }));
 
   // Add prediction datasets (dashed)
-  const allDatesWithPred=[...datas,...Array.from({length:predDays},(_,i)=>{
-    const d=new Date(datas[datas.length-1]);d.setDate(d.getDate()+i+1);return d.toISOString().slice(0,10);
+  const allDatesWithPred=[...datasEvo,...Array.from({length:predDays},(_,i)=>{
+    const d=new Date(datasEvo[datasEvo.length-1]);d.setDate(d.getDate()+i+1);return d.toISOString().slice(0,10);
   })];
   sups.forEach(s=>{
-    const vals=datas.map(d=>{const r=ALL.filter(x=>x.data===d&&x.supermercado===s);return r.length?r.reduce((a,b)=>a+(b.preco||0),0):null;}).filter(v=>v!=null);
+    const vals=datasEvo.map(d=>{const r=ALL.filter(x=>x.data===d&&x.supermercado===s);return r.length?r.reduce((a,b)=>a+(b.preco||0),0):null;}).filter(v=>v!=null);
     const last14=vals.slice(-14).filter(v=>v!=null);
     const reg=linearRegression(last14);
     if(!reg)return;
-    const predStart=datas.length;
+    const predStart=datasEvo.length;
     const predData=allDatesWithPred.map((_,i)=>i<predStart?null:reg.predict(last14.length+(i-predStart)));
     datasets.push({
       label:`Prev. ${SUP_LABEL[s]||s}`,
@@ -972,15 +1089,17 @@ function renderPage1(){
   });
 
   window._evoDates=allDatesWithPred;
-  window._evoDatasLength=datas.length;
+  window._evoDatasLength=datasEvo.length;
 
   destroyChart('chart-evolucao');
   CHARTS['chart-evolucao']=new Chart(document.getElementById('chart-evolucao'),{
     type:'line',
     data:{labels:allDatesWithPred.map(d=>d.slice(5)),datasets},
     options:{
-      responsive:true,interaction:{mode:'index'},
-      plugins:{legend:{display:false}},
+      responsive:true,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        label:ctx=>ctx.raw==null?null:ctx.dataset.label+': '+ctx.raw.toFixed(2).replace('.',',')+' €'
+      }}},
       scales:{
         x:{grid:{color:cc.grid},ticks:{color:cc.tick,maxTicksLimit:12}},
         y:{grid:{color:cc.grid},ticks:{color:cc.tick,callback:v=>v.toFixed(0)+' €'}}
