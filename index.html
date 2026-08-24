@@ -603,6 +603,33 @@ function linearRegression(values){
   return{slope,intercept,predict:i=>slope*i+intercept};
 }
 
+// media movel (trailing) que ignora dias em falta
+function mediaMovel(vals,w){
+  return vals.map((_,i)=>{
+    let s=0,c=0;
+    for(let k=Math.max(0,i-w+1);k<=i;k++){if(vals[k]!=null){s+=vals[k];c++;}}
+    return c?s/c:null;
+  });
+}
+
+// tendencia robusta para uma serie diaria "em degraus":
+// suaviza com media movel de 7 dias, ajusta uma reta as ultimas ~4 semanas
+// e amortece o declive. Devolve {slope (EUR/dia), base (ultimo valor real)}.
+function tendencia(vals){
+  const limpos=vals.filter(v=>v!=null);
+  if(limpos.length<10)return null;
+  const ma=mediaMovel(vals,7).filter(v=>v!=null);
+  const reg=linearRegression(ma.slice(-28));
+  if(!reg)return null;
+  return {slope:reg.slope*0.6, base:limpos[limpos.length-1]};
+}
+
+// preve k dias a frente a partir da base, limitando a variacao a +-12%
+function prever(t,k){
+  const cap=t.base*0.12;
+  return t.base+Math.max(-cap,Math.min(cap,t.slope*k));
+}
+
 // ── LOAD ──────────────────────────────────────────────────────
 async function loadData(){
   ALL=[];
@@ -1130,17 +1157,16 @@ function renderPage1(){
     borderColor:SUP_COLOR[s],backgroundColor:rgba(SUP_COLOR[s],.06),fill:true,tension:.3,pointRadius:datasEvo.length>60?0:3,borderWidth:2,spanGaps:true
   }));
 
-  // Add prediction datasets (dashed)
+  // Previsão (dashed): tendência suavizada, ligada ao último ponto real
+  const predStart=datasEvo.length;
   const allDatesWithPred=[...datasEvo,...Array.from({length:predDays},(_,i)=>{
     const d=new Date(datasEvo[datasEvo.length-1]);d.setDate(d.getDate()+i+1);return d.toISOString().slice(0,10);
   })];
   sups.forEach(s=>{
-    const vals=datasEvo.map(d=>{const r=ALL.filter(x=>x.data===d&&x.supermercado===s);return r.length?r.reduce((a,b)=>a+(b.preco||0),0):null;}).filter(v=>v!=null);
-    const last14=vals.slice(-14).filter(v=>v!=null);
-    const reg=linearRegression(last14);
-    if(!reg)return;
-    const predStart=datasEvo.length;
-    const predData=allDatesWithPred.map((_,i)=>i<predStart?null:reg.predict(last14.length+(i-predStart)));
+    const serie=datasEvo.map(d=>{const r=ALL.filter(x=>x.data===d&&x.supermercado===s);return r.length?r.reduce((a,b)=>a+(b.preco||0),0):null;});
+    const t=tendencia(serie);
+    if(!t)return;
+    const predData=allDatesWithPred.map((_,i)=> i<predStart-1?null : i===predStart-1?t.base : prever(t,i-predStart+1));
     datasets.push({
       label:`Prev. ${SUP_LABEL[s]||s}`,
       data:predData,
@@ -1465,27 +1491,25 @@ function renderHistorico(){
       data:[...vals,...Array(predDays).fill(null)],
       borderColor:SUP_COLOR[s],backgroundColor:'transparent',tension:.3,pointRadius:3,spanGaps:true
     });
-    const nonNull=vals.filter(v=>v!=null);
-    const last14=nonNull.slice(-14);
-    const reg=linearRegression(last14);
-    if(reg){
-      const predData=[...Array(DATAS.length).fill(null),...futureDates.map((_,i)=>reg.predict(last14.length+i))];
+    const t=tendencia(vals);
+    if(t){
+      const predData=[...Array(DATAS.length-1).fill(null),t.base,...futureDates.map((_,i)=>prever(t,i+1))];
       datasets.push({
         label:`Prev. ${SUP_LABEL[s]||s}`,
         data:predData,
         borderColor:SUP_COLOR[s],backgroundColor:'transparent',
         borderDash:[5,4],tension:.3,pointRadius:0,spanGaps:false,borderWidth:1.5
       });
-      const trend=reg.slope;
-      const badge=Math.abs(trend)<0.01?
+      const sem=t.slope*7;
+      const badge=Math.abs(sem)<0.05?
         `<span class="pred-badge pred-flat">Estável</span>`:
-        trend>0?`<span class="pred-badge pred-up">▲ +${(trend*7).toFixed(2).replace('.',',')} €/sem</span>`:
-        `<span class="pred-badge pred-down">▼ ${(trend*7).toFixed(2).replace('.',',')} €/sem</span>`;
+        sem>0?`<span class="pred-badge pred-up">▲ +${sem.toFixed(2).replace('.',',')} €/sem</span>`:
+        `<span class="pred-badge pred-down">▼ ${sem.toFixed(2).replace('.',',')} €/sem</span>`;
       predInfo+=`<span style="margin-right:12px"><b style="color:${SUP_COLOR[s]}">${SUP_LABEL[s]||s}</b> ${badge}</span>`;
     }
   });
 
-  document.getElementById('pred-info').innerHTML=predInfo?'Tendência (14 dias): '+predInfo:'';
+  document.getElementById('pred-info').innerHTML=predInfo?'Tendência (média móvel de 7 dias): '+predInfo:'';
 
   destroyChart('chart-hist');
   CHARTS['chart-hist']=new Chart(document.getElementById('chart-hist'),{
