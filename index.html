@@ -61,7 +61,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .refresh-banner.visible{display:flex}
 .refresh-btn{background:var(--text);color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit}
 
-.page{max-width:1520px;margin:0;padding:28px 32px;scroll-margin-top:16px}
+.page{max-width:1660px;margin:0;padding:28px 32px;scroll-margin-top:16px}
 .page+.page{border-top:1px solid var(--border)}
 .page-header{margin-bottom:18px}
 .page-header h2{font-size:16px;font-weight:600;letter-spacing:-.01em}
@@ -138,7 +138,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 @keyframes spin{to{transform:rotate(360deg)}}
 canvas{max-height:280px}
 
-.colophon{max-width:1520px;margin:0;padding:24px 32px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+.colophon{max-width:1660px;margin:0;padding:24px 32px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
 
 @media(max-width:860px){
   .app{flex-direction:column}
@@ -205,10 +205,7 @@ canvas{max-height:280px}
           </div>
         </div>
         <div class="legend">
-          <div class="leg"><div class="leg-dot" style="background:var(--cont)"></div>Continente</div>
-          <div class="leg"><div class="leg-dot" style="background:var(--auch)"></div>Auchan</div>
-          <div class="leg"><div class="leg-dot" style="background:var(--ping)"></div>Pingo Doce</div>
-          <div class="leg"><div class="leg-dot" style="background:var(--muted);border:1px dashed"></div>Previsão</div>
+          <div class="leg"><div class="leg-dot" style="background:var(--muted);border:1px dashed"></div>a tracejado: previsão a 7 dias</div>
         </div>
         <canvas id="chart-evolucao" class="chart-cursor"></canvas>
         <div class="click-hint">Clica num ponto para ver os preços desse dia</div>
@@ -256,7 +253,7 @@ canvas{max-height:280px}
     <button class="export-btn" onclick="exportCSV('tabela-comp','comparacao')">⬇ CSV</button>
   </div>
   <div class="card" style="margin-bottom:12px">
-    <canvas id="chart-barras" style="max-height:380px"></canvas>
+    <div style="height:560px"><canvas id="chart-barras"></canvas></div>
   </div>
   <div class="card">
     <div style="overflow-x:auto"><table class="tbl" id="tabela-comp"></table></div>
@@ -460,6 +457,16 @@ function basketAvg(dt){
   const tot=ss.map(s=>ALL.filter(r=>r.data===dt&&r.supermercado===s).reduce((a,b)=>a+(b.preco||0),0));
   return tot.reduce((a,b)=>a+b,0)/tot.length;
 }
+
+// fundo tipo heatmap: verde (mais barato) -> vermelho suave (mais caro)
+function heatBg(v,min,max){
+  if(v==null||!(max>min))return '';
+  const t=(v-min)/(max-min);
+  const g=[74,157,110], r=[199,107,90];
+  const c=g.map((x,i)=>Math.round(x+(r[i]-x)*t));
+  return `background:rgba(${c[0]},${c[1]},${c[2]},.16)`;
+}
+function rgba(hex,a){const n=parseInt(hex.slice(1),16);return `rgba(${n>>16&255},${(n>>8)&255},${n&255},${a})`;}
 
 // inflacao homologa oficial (fonte: INE / Banco de Portugal - BPstat). Atualizar mensalmente.
 const INE={
@@ -710,6 +717,60 @@ const eventMarkersPlugin={
   }
 };
 Chart.register(eventMarkersPlugin);
+
+// linha vertical no ponto sob o rato
+const crosshairPlugin={
+  id:'crosshair',
+  afterDraw(chart){
+    if(!chart.config.options.crosshair)return;
+    const act=chart.tooltip&&chart.tooltip.getActiveElements?chart.tooltip.getActiveElements():[];
+    if(!act.length)return;
+    const x=act[0].element.x, {ctx,chartArea}=chart;
+    ctx.save();ctx.beginPath();ctx.moveTo(x,chartArea.top);ctx.lineTo(x,chartArea.bottom);
+    ctx.lineWidth=1;ctx.strokeStyle=getChartColors().tick;ctx.globalAlpha=.45;ctx.stroke();ctx.restore();
+  }
+};
+// nome de cada série no fim da linha (substitui a legenda)
+const endLabelsPlugin={
+  id:'endLabels',
+  afterDatasetsDraw(chart){
+    if(!chart.config.options.endLabels)return;
+    const {ctx}=chart;
+    chart.data.datasets.forEach((ds,i)=>{
+      if(ds.borderDash)return;
+      const meta=chart.getDatasetMeta(i);
+      if(meta.hidden)return;
+      let pt=null;
+      for(let k=ds.data.length-1;k>=0;k--){if(ds.data[k]!=null){pt=meta.data[k];break;}}
+      if(!pt)return;
+      ctx.save();ctx.fillStyle=ds.borderColor;ctx.font='600 11px Inter,sans-serif';ctx.textBaseline='middle';
+      ctx.fillText(ds.label,pt.x+8,pt.y);ctx.restore();
+    });
+  }
+};
+// liga os pontos de cada produto (min->max) num dot plot
+const dumbbellPlugin={
+  id:'dumbbell',
+  beforeDatasetsDraw(chart){
+    if(!chart.config.options.dumbbell)return;
+    const {ctx}=chart;
+    const rows={};
+    chart.data.datasets.forEach((ds,i)=>{
+      const meta=chart.getDatasetMeta(i);
+      if(meta.hidden)return;
+      meta.data.forEach(pt=>{
+        if(!pt||pt.skip)return;
+        const k=Math.round(pt.y);
+        if(!rows[k])rows[k]={min:pt.x,max:pt.x,y:pt.y};
+        rows[k].min=Math.min(rows[k].min,pt.x);rows[k].max=Math.max(rows[k].max,pt.x);
+      });
+    });
+    ctx.save();ctx.strokeStyle=getChartColors().tick;ctx.globalAlpha=.35;ctx.lineWidth=2;
+    Object.values(rows).forEach(r=>{ctx.beginPath();ctx.moveTo(r.min,r.y);ctx.lineTo(r.max,r.y);ctx.stroke();});
+    ctx.restore();
+  }
+};
+Chart.register(crosshairPlugin,endLabelsPlugin,dumbbellPlugin);
 
 // ── PEARSON CORRELATION ───────────────────────────────────────
 function pearsonCorr(x, y){
@@ -1066,7 +1127,7 @@ function renderPage1(){
   const datasets=sups.map(s=>({
     label:SUP_LABEL[s]||s,
     data:datasEvo.map(d=>{const r=ALL.filter(x=>x.data===d&&x.supermercado===s);return r.length?r.reduce((a,b)=>a+(b.preco||0),0):null;}),
-    borderColor:SUP_COLOR[s],backgroundColor:'transparent',tension:.3,pointRadius:datasEvo.length>60?0:3,spanGaps:true
+    borderColor:SUP_COLOR[s],backgroundColor:rgba(SUP_COLOR[s],.06),fill:true,tension:.3,pointRadius:datasEvo.length>60?0:3,borderWidth:2,spanGaps:true
   }));
 
   // Add prediction datasets (dashed)
@@ -1097,6 +1158,8 @@ function renderPage1(){
     data:{labels:allDatesWithPred.map(d=>d.slice(5)),datasets},
     options:{
       responsive:true,interaction:{mode:'index',intersect:false},
+      layout:{padding:{right:74}},
+      crosshair:true,endLabels:true,
       plugins:{legend:{display:false},tooltip:{callbacks:{
         label:ctx=>ctx.raw==null?null:ctx.dataset.label+': '+ctx.raw.toFixed(2).replace('.',',')+' €'
       }}},
@@ -1128,19 +1191,20 @@ function renderPage1(){
   });
   destroyChart('chart-donut');
   CHARTS['chart-donut']=new Chart(document.getElementById('chart-donut'),{
-    type:'doughnut',
+    type:'bar',
     data:{
       labels:[...sups.map(s=>SUP_LABEL[s]),'Igual'],
       datasets:[{data:[...sups.map(s=>winCount[s]||0),tieCount],
-        backgroundColor:[...sups.map(s=>SUP_COLOR[s]),'#9090a0'],borderWidth:0}]
+        backgroundColor:[...sups.map(s=>SUP_COLOR[s]),'#b8bcc2'],borderRadius:4,barThickness:24}]
     },
-    options:{cutout:'68%',responsive:true,plugins:{legend:{display:false},
-      tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed}`}}}}
+    options:{indexAxis:'y',responsive:true,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.parsed.x} produtos`}}},
+      scales:{
+        x:{beginAtZero:true,grid:{color:cc.grid},ticks:{color:cc.tick,precision:0,stepSize:1}},
+        y:{grid:{display:false},ticks:{color:cc.tick}}
+      }}
   });
-  let dLeg='';
-  sups.forEach(s=>{dLeg+=`<div class="leg" style="margin-bottom:3px"><div class="leg-dot" style="background:${SUP_COLOR[s]}"></div>${SUP_LABEL[s]}: <b style="color:${SUP_COLOR[s]};margin-left:4px">${winCount[s]||0}</b></div>`;});
-  dLeg+=`<div class="leg"><div class="leg-dot" style="background:#9090a0"></div>Igual: <b style="margin-left:4px">${tieCount}</b></div>`;
-  document.getElementById('donut-legend').innerHTML=dLeg;
+  document.getElementById('donut-legend').innerHTML='';
 
   // Table
   let th='<thead><tr><th>Produto</th>';
@@ -1150,14 +1214,15 @@ function renderPage1(){
   produtos.forEach(p=>{
     const prices={};
     sups.forEach(s=>{const r=hoje.find(d=>d.produto===p&&d.supermercado===s);if(r)prices[s]=r.preco;});
-    const min=Math.min(...Object.values(prices).filter(v=>v!=null));
+    const vals=Object.values(prices).filter(v=>v!=null);
+    const min=Math.min(...vals), max=Math.max(...vals);
     const w=winnerInfo(prices);
     rows+=`<tr><td>${p}</td>`;
     sups.forEach(s=>{
       const v=prices[s];
       const fb=hoje.find(d=>d.produto===p&&d.supermercado===s)?.is_fallback;
       const fbIcon=fb?` <span class="fallback-icon" title="Preço do dia anterior">⚠️</span>`:'';
-      rows+=`<td class="${v===min?'cheaper':'pricier'}">${v!=null?v.toFixed(2).replace('.',',')+' €':'—'}${fbIcon}</td>`;
+      rows+=`<td class="${v===min?'cheaper':'pricier'}" style="${heatBg(v,min,max)}">${v!=null?v.toFixed(2).replace('.',',')+' €':'—'}${fbIcon}</td>`;
     });
     rows+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td></tr>`;
   });
@@ -1263,23 +1328,24 @@ function renderComparacao(){
   }else produtos.sort();
 
   const cc=getChartColors();
+  const labs=produtos.map(p=>p.length>18?p.slice(0,16)+'…':p);
   destroyChart('chart-barras');
   CHARTS['chart-barras']=new Chart(document.getElementById('chart-barras'),{
-    type:'bar',
+    type:'scatter',
     data:{
-      labels:produtos.map(p=>p.length>18?p.slice(0,16)+'…':p),
       datasets:sups.map(s=>({
         label:SUP_LABEL[s]||s,
-        data:produtos.map(p=>{const r=hoje.find(d=>d.produto===p&&d.supermercado===s);return r?r.preco:null;}),
-        backgroundColor:SUP_COLOR[s]+'bb',borderColor:SUP_COLOR[s],borderWidth:1,borderRadius:4
+        data:produtos.map((p,idx)=>{const r=hoje.find(d=>d.produto===p&&d.supermercado===s);return r&&r.preco!=null?{x:r.preco,y:labs[idx]}:null;}).filter(Boolean),
+        backgroundColor:SUP_COLOR[s],borderColor:SUP_COLOR[s],pointRadius:5,pointHoverRadius:7
       }))
     },
     options:{
-      responsive:true,indexAxis:'y',
-      plugins:{legend:{labels:{color:cc.tick,font:{size:12}}}},
+      responsive:true,maintainAspectRatio:false,dumbbell:true,
+      plugins:{legend:{labels:{color:cc.tick,font:{size:12},usePointStyle:true,pointStyle:'circle'}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.x.toFixed(2).replace('.',',')} €`}}},
       scales:{
-        x:{grid:{color:cc.grid},ticks:{color:cc.tick,callback:v=>v+' €'}},
-        y:{grid:{color:cc.grid},ticks:{color:cc.tick,font:{size:11}}}
+        x:{position:'top',grid:{color:cc.grid},ticks:{color:cc.tick,callback:v=>v+' €'}},
+        y:{type:'category',labels:labs,offset:true,grid:{color:cc.grid},ticks:{color:cc.tick,font:{size:11}}}
       }
     }
   });
