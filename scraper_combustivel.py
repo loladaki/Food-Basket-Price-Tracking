@@ -2,6 +2,7 @@ import yfinance as yf
 import psycopg2
 import os
 import re
+import math
 import requests
 from bs4 import BeautifulSoup
 from datetime import date
@@ -19,12 +20,18 @@ def get_brent_price():
         hist = yf.Ticker("BZ=F").history(period="5d")
         if hist.empty:
             return None, None
-        usd = round(float(hist["Close"].iloc[-1]), 2)
+        usd = float(hist["Close"].iloc[-1])
+        if not math.isfinite(usd):     # dias sem cotacao vem como NaN
+            return None, None
+        usd = round(usd, 2)
 
         fx = yf.Ticker("EURUSD=X").history(period="5d")
         if fx.empty:
             return usd, None
-        return usd, round(usd / float(fx["Close"].iloc[-1]), 2)
+        rate = float(fx["Close"].iloc[-1])
+        if not math.isfinite(rate) or rate == 0:
+            return usd, None
+        return usd, round(usd / rate, 2)
     except Exception as e:
         print(f"Erro Brent: {e}")
         return None, None
@@ -98,6 +105,13 @@ hoje = date.today()
 
 brent_usd, brent_eur = get_brent_price()
 gasolina95, gasoleo = get_precos_pt()
+
+# rede de seguranca: nunca gravar NaN/inf (o Postgres aceita NaN em numeric e
+# depois estraga o site); um valor invalido passa a None e usa-se o fallback
+def saneia(v):
+    return v if (v is not None and math.isfinite(v)) else None
+brent_usd, brent_eur = saneia(brent_usd), saneia(brent_eur)
+gasolina95, gasoleo = saneia(gasolina95), saneia(gasoleo)
 
 fb_brent_usd, fb_brent_eur, fb_gasolina, fb_gasoleo = get_fallback(cursor)
 if brent_usd is None and fb_brent_usd:
