@@ -99,6 +99,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .sup-auch{color:var(--auch)}
 .sup-ping{color:var(--ping)}
 .fallback-icon{font-size:12px;cursor:help;opacity:.7}
+.ph-a{color:inherit;text-decoration:none;cursor:pointer;border-bottom:1px dotted transparent}
+.ph-a:hover{border-bottom-color:currentColor}
+#ph-tip{position:fixed;z-index:9999;display:none;pointer-events:none;
+  background:#fff;border:1px solid var(--border-strong);border-radius:10px;padding:7px;
+  box-shadow:0 12px 34px rgba(0,0,0,.22)}
+#ph-tip img{display:block;width:132px;height:132px;object-fit:contain;background:#fff;border-radius:6px}
+#ph-tip .ph-cap{font-size:11px;color:#555;text-align:center;margin-top:5px;max-width:132px}
 
 .filter-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .filter-row label{font-size:12px;color:var(--muted)}
@@ -428,6 +435,65 @@ const SUP_COLOR={continente:'#4a9d6e',auchan:'#d08a52',pingodoce:'#5b83bd'};
 const SUP_LABEL={continente:'Continente',auchan:'Auchan',pingodoce:'Pingo Doce'};
 const fmt=v=>v!=null?v.toFixed(2).replace('.',',')+' €':'—';
 const fmtP=v=>v!=null?v.toFixed(1).replace('.',',')+'%':'—';
+
+// links para a pagina de cada produto em cada supermercado
+const LINKS={
+ arroz:{continente:'https://www.continente.pt/produto/arroz-carolino-continente-continente-4738050.html',auchan:'https://www.auchan.pt/pt/alimentacao/mercearia/arroz-e-massa/arroz/arroz-carolino-auchan-extra-longo-1kg/56832.html',pingodoce:'https://www.pingodoce.pt/home/produtos/mercearia/arroz-massa-e-leguminosas/arroz/arroz-carolino-pingo-doce-918813.html'},
+ massa:{continente:'https://www.continente.pt/produto/massa-esparguete-pack-poupanca-continente-continente-5253941.html',auchan:'https://www.auchan.pt/pt/alimentacao/mercearia/arroz-e-massa/esparguete-aletria-e-meadas/esparguete-auchan-1kg/3771753.html',pingodoce:'https://www.pingodoce.pt/home/produtos/as-nossas-marcas/pingo-doce/massa-esparguete-pack-poupanca-pingo-doce-895467.html'},
+ leite:{continente:'https://www.continente.pt/produto/leite-uht-meio-gordo-continente-continente-6879912.html',auchan:'https://www.auchan.pt/pt/alimentacao/produtos-lacteos/leites/leite-uht/leite-auchan-uht-meio-gordo-slim-1l/3010403.html',pingodoce:'https://www.pingodoce.pt/home/produtos/leite-e-bebidas-vegetais%E2%80%8B/leite/leite-meio-gordo-e-gordo%E2%80%8B/leite-uht-meio-gordo-pingo-doce-48150.html'},
+ ovos:{continente:'https://www.continente.pt/produto/ovos-de-solo-classe-m-continente-continente-7284496.html',auchan:'https://www.auchan.pt/pt/alimentacao/produtos-lacteos/ovos/ovos-galinhas-criadas-no-solo/ovos-galinhas-solo-auchan-classe-m-1-duzia/3931445.html',pingodoce:'https://www.pingodoce.pt/home/produtos/as-nossas-marcas/pingo-doce/ovos-de-solo-classe-m-pingo-doce-889028.html'},
+ frango:{continente:'https://www.continente.pt/produto/frango-completo-aos-pedacos-continente-continente-7069752.html',auchan:'https://www.auchan.pt/pt/produtos-frescos/talho/frango-e-galinha/frango-partido-auchan-kg/3357441.html',pingodoce:'https://www.pingodoce.pt/home/produtos/talho/aves/frango/frango-para-churrasco-embalado-pingo-doce-476488.html'},
+ atum:{continente:'https://www.continente.pt/produto/atum-em-azeite-continente-continente-3697794.html',auchan:'https://www.auchan.pt/pt/alimentacao/mercearia/conservas/atum/atum-posta-auchan-em-azeite-120-%2878%29g/3877258.html',pingodoce:'https://www.pingodoce.pt/home/produtos/mercearia/conservas/atum/atum-posta-em-azeite-pingo-doce-559259.html'},
+ azeite:{continente:'https://www.continente.pt/produto/azeite-poupanca-continente-7748019.html',auchan:'https://www.auchan.pt/pt/alimentacao/mercearia/azeite-oleo-e-vinagre/azeite-virgem-e-extra-virgem/azeite-virgem-extra-auchan-750-ml/3829993.html',pingodoce:'https://www.pingodoce.pt/home/produtos/mercearia/azeite-oleo-e-vinagre/azeite/azeite-virgem-extra-as-nossas-planicies-pingo-doce-654603.html'},
+ batatas:{continente:'https://www.continente.pt/produto/batata-branca-continente-continente-5454781.html',auchan:'https://www.auchan.pt/pt/produtos-frescos/legumes/batatas-alho-e-cebola/batata-vermelha-auchan-3-kg/3483188.html',pingodoce:'https://www.pingodoce.pt/home/produtos/frutas-e-vegetais/vegetais/batatas-cebolas-e-alhos/batata-para-cozer-e-assar-embalada-pingo-doce-454634.html'},
+ tomate:{continente:'https://www.continente.pt/produto/tomate-chucha-continente-continente-2076838.html',auchan:'https://www.auchan.pt/pt/produtos-frescos/legumes/tomate-pepino-e-pimentos/tomate-chucha-kg/234040.html',pingodoce:'https://www.pingodoce.pt/home/produtos/frutas-e-vegetais/vegetais/tomates-pepinos-e-pimentos/tomate-alongado--57%2F67-nossa-fruta-e-legumes-46397.html'},
+ pao:{continente:'https://www.continente.pt/produto/pao-de-rio-maior-6913160.html',auchan:'https://www.auchan.pt/pt/produtos-frescos/padaria/pao-fresco-e-broa/pao-de-rio-maior-450g/2120847.html',pingodoce:'https://www.pingodoce.pt/home/produtos/padaria-e-pastelaria/pao-da-nossa-padaria/pao-familiar/pao-de-rio-maior-nossa-padaria-254253.html'},
+ acucar:{continente:'https://www.continente.pt/produto/acucar-branco-continente-continente-5038799.html',auchan:'https://www.auchan.pt/pt/alimentacao/mercearia/acucar-e-adocante/acucar/acucar-auchan-branco-granulado-bx-1kg/4002491.html',pingodoce:'https://www.pingodoce.pt/home/produtos/mercearia/farinha-fermento-e-acucar/acucar-e-adocante/acucar-branco-granulado-pingo-doce-643460.html'},
+ farinha:{continente:'https://www.continente.pt/produto/farinha-de-trigo-t65-continente-continente-7579107.html',auchan:'https://www.auchan.pt/pt/alimentacao/mercearia/farinha/farinha-trigo/farinha-de-trigo-auchan-a-mesa-em-portugal-alentejo-1kg/3372552.html',pingodoce:'https://www.pingodoce.pt/home/produtos/mercearia/farinha-fermento-e-acucar/farinha-fermento-e-pao-ralado/farinha-de-trigo-super-fina-com-fermento-pingo-doce-650224.html'},
+ manteiga:{continente:'https://www.continente.pt/produto/creme-vegetal-para-barrar-sabor-a-manteiga-becel-becel-7621869.html',auchan:'https://www.auchan.pt/pt/alimentacao/produtos-lacteos/manteiga-cremes-e-margarina/cremes-para-barrar/creme-vegetal-becel-para-barrar-original-225g/3513383.html',pingodoce:'https://www.pingodoce.pt/home/produtos/manteiga-margarina-e-natas-/manteiga-e-margarina/creme-vegetal-para-barrar-sabor-a-manteiga-becel-947029.html'},
+ iogurte:{continente:'https://www.continente.pt/produto/iogurte-aroma-coco-continente-continente-5788581.html',auchan:'https://www.auchan.pt/pt/alimentacao/produtos-lacteos/iogurtes/magros-e-naturais/iogurte-auchan-magro-aroma-morango-4x125g/726838.html',pingodoce:'https://www.pingodoce.pt/home/produtos/iogurtes-e-sobremesas/iogurtes/aromas%E2%80%8B/iogurte-aroma-tutti-frutti-pack-4-longa-vida-769091003.html'},
+ queijo:{continente:'https://www.continente.pt/produto/queijo-flamengo-fatiado-continente-continente-6184775.html',auchan:'https://www.auchan.pt/pt/produtos-frescos/queijaria/queijo-fatiado-e-barra/queijo-flamengo-light-auchan-fatias-200g/1061026.html',pingodoce:'https://www.pingodoce.pt/home/produtos/charcutaria-e-queijos/queijos/fatiado-e-bola%E2%80%8B/queijo-flamengo-fatiado-pingo-doce-900685.html'},
+ cafe:{continente:'https://www.continente.pt/produto/cafe-soluvel-classico-continente-continente-4871954.html',auchan:'https://www.auchan.pt/pt/alimentacao/mercearia/cafe-cha-e-infusao/cafe-saco-soluvel-e-cevadas/cafe-auchan-liofilizado-gold-intenso-100g/2955724.html',pingodoce:'https://www.pingodoce.pt/home/produtos/cafe-cha-e-achocolatados/cafe-soluvel-e-descafeinado/cafe-soluvel-pingo-doce-1999.html'},
+ cereais:{continente:'https://www.continente.pt/produto/cereais-chocapic-chocapic-2004742.html',auchan:'https://www.auchan.pt/pt/alimentacao/mercearia/cereais-e-barras/cereais-crianca/cereais-nestle-chocapic-375g/36138.html',pingodoce:'https://www.pingodoce.pt/home/produtos/bolachas-cereais-e-guloseimas/cereais-barras-e-bolsas-de-fruta/infantis-e-juvenis/cereais-de-chocolate-chocapic-760687.html'},
+ banana:{continente:'https://www.continente.pt/produto/banana-continente-continente-2597619.html',auchan:'https://www.auchan.pt/pt/produtos-frescos/fruta/banana-e-frutos-tropicais/banana-del-monte-kg/234229.html',pingodoce:'https://www.pingodoce.pt/home/produtos/frutas-e-vegetais/frutas/fruta-da-epoca/banana-importada-nossa-fruta-e-legumes-43218.html'},
+ laranja:{continente:'https://www.continente.pt/produto/laranja-zero-desperdicio-continente-continente-7998103.html',auchan:'https://www.auchan.pt/pt/produtos-frescos/fruta/fruta-da-epoca/laranja-algarve-igp-auchan-3kg/3467264.html',pingodoce:'https://www.pingodoce.pt/home/produtos/frutas-e-vegetais/frutas/fruta-da-epoca/laranja-igp-algarve-embalada-nossa-fruta-e-legumes-764041.html'},
+ detergente:{continente:'https://www.continente.pt/produto/detergente-maquina-roupa-liquido-sabao-natural-continente-continente-7718451.html',auchan:'https://www.auchan.pt/pt/limpeza-e-cuidados-do-lar/limpeza-e-tratamento-de-roupa/detergente-maquina-roupa/detergente-liquido/detergente-roupa-maquina-liquido-auchan-caraibas-37-doses/3599527.html',pingodoce:'https://www.pingodoce.pt/home/produtos/limpeza/roupa/detergentes/detergente-maquina-roupa-liquido-roupa-delicada-ultra-881475.html'},
+};
+
+// foto de cada produto por supermercado (recolhidas uma vez; nao mudam)
+const IMGS={
+ arroz:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/images/col/473/4738050-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dwfee94959/images/hi-res/000056832.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/918813_1_a102ec2410c8d3214ddcc3d559ac0f0e.png'},
+ massa:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw01e04d94/images/col/525/5253941-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dw5a5ad65c/images/hi-res/003771753.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/895467_7c41adcaa2779b32a74e062769f4a542.png'},
+ leite:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw66d59f15/images/col/687/6879912-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dw8d0b4864/images/hi-res/003010403.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/48150_caf5b3c16439abbb06c0f2c93717a573.png'},
+ ovos:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/images/col/728/7284496-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dwa23e1a6a/images/hi-res/003931445.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/889028_6fa5af60c538c5709079dbb218e3b1d2.jpg'},
+ frango:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw16617274/images/col/706/7069752-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dw04b99c5d/images/hi-res/003357441.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/476488_1_5b72d98318fba3ac653f586b73870499.png'},
+ atum:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw3e836405/images/col/369/3697794-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dwf243624d/images/hi-res/003877258.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/559259_997778a446875bf6a99f2671aaad75ea.png'},
+ azeite:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw72de3e23/images/col/774/7748019-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dwd97557e9/images/hi-res/003829993.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/654603_c49853d9773a302d1ad7e504947dd687.png'},
+ batatas:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dwecd417b2/images/col/545/5454781-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dwda4e1f7c/images/hi-res/003483188.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/454634_1_367117c8328f9b663c0cea2e77b0d5b2.png'},
+ tomate:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw6a1b00e1/images/col/207/2076838-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dw773294fc/images/hi-res/000234040.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/46397_e258e9e93c8ed2f3c65d5422d3591090.png'},
+ pao:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw508afddd/images/col/691/6913160-cima-acessorio-fatiado.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dwdcb19164/images/hi-res/002120847.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/254253_27dfc00cd7f6b3b8821b85a664475738.png'},
+ acucar:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/images/col/503/5038799-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dw5172e488/images/hi-res/004002491.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/643460_73a054f1eb48d2bcecc8da8143f60a58.png'},
+ farinha:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dwb040576e/images/col/757/7579107-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dw6c6206d9/images/hi-res/003372552.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/650224_483c8d962cc935a6d297d9f66ab66923.png'},
+ manteiga:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw3d80b9e6/images/col/762/7621869-hero.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dwfa285413/images/hi-res/003513383.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/947029_3e896e1f699b83c335e6ae5b89e19b53.jpg'},
+ iogurte:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw5a2fa6f4/images/col/578/5788581-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dw82adb659/images/hi-res/000726838.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/769091003_5bb86a447b8c4ab00d01041c0bdd4888.jpg'},
+ queijo:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw079ac8f1/images/col/618/6184775-frente-embalagem-acessorio.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dwf58ab57f/images/hi-res/001061026.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/900685_412411943dc1e680bd9b6cf8784ed561.png'},
+ cafe:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw5445ea9d/images/col/487/4871954-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dw29f9fb08/images/hi-res/002955724.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/1999_2cc366604d04f49fa7e73be51ac0d20e.png'},
+ cereais:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dw47734cf4/images/col/200/2004742-frente.png',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dw68c303a8/images/hi-res/000036138.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/760687_fac1798a4370aff01ef68e4b596135bb.png'},
+ banana:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dwcd554331/images/col/259/2597619-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dw411d96d0/images/hi-res/000234229.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/43218_d2f66a2c2c29a23ea2dd73c9d752a988.png'},
+ laranja:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/dwe2d8d312/images/col/799/7998103-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/images/hi-res/003467264.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/764041_4d80050b52d19014b2ec3173e414c68b.png'},
+ detergente:{continente:'https://www.continente.pt/on/demandware.static/-/Sites-col-master-catalog/default/images/col/771/7718451-frente.jpg',auchan:'https://www.auchan.pt/dw/image/v2/BFRC_PRD/on/demandware.static/-/Sites-auchan-pt-master-catalog/default/dw07124db0/images/hi-res/003599527.jpg',pingodoce:'https://static.pingodoce.pt/dw/image/v2/BLJJ_PRD/on/demandware.static/-/Sites-pingo-doce-master/default/dw8cff88d2/images/large/881475_370b4678793df90d85ac9d8e541c4fb5.jpeg'},
+};
+
+// envolve um preco/nome num link para o produto + foto ao passar o rato
+const precoLink=(produto,sup,inner)=>{
+  const url=LINKS[produto]&&LINKS[produto][sup];
+  const img=IMGS[produto]&&IMGS[produto][sup];
+  if(!url&&!img)return inner;
+  const at=(img?` data-img="${img}"`:'')+` data-cap="${SUP_LABEL[sup]||sup}"`;
+  return url
+    ?`<a class="ph-a" href="${url}" target="_blank" rel="noopener"${at}>${inner}</a>`
+    :`<span class="ph-a"${at}>${inner}</span>`;
+};
 
 // destaca na nav a secção que está à vista
 const navObserver=new IntersectionObserver(entries=>{
@@ -1248,7 +1314,8 @@ function renderPage1(){
       const v=prices[s];
       const fb=hoje.find(d=>d.produto===p&&d.supermercado===s)?.is_fallback;
       const fbIcon=fb?` <span class="fallback-icon" title="Preço do dia anterior">⚠️</span>`:'';
-      rows+=`<td class="${v===min?'cheaper':'pricier'}" style="${heatBg(v,min,max)}">${v!=null?v.toFixed(2).replace('.',',')+' €':'—'}${fbIcon}</td>`;
+      const cont=v!=null?precoLink(p,s,v.toFixed(2).replace('.',',')+' €')+fbIcon:'—';
+      rows+=`<td class="${v===min?'cheaper':'pricier'}" style="${heatBg(v,min,max)}">${cont}</td>`;
     });
     rows+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td></tr>`;
   });
@@ -1314,7 +1381,8 @@ function showDrilldown(data){
       const hRow=hojeRows.find(d=>d.produto===p&&d.supermercado===s);
       let diff=v!=null&&hRow?.preco!=null&&data!==HOJE?v-hRow.preco:null;
       let dH=diff!=null?(diff>0.005?` <span style="font-size:10px;color:var(--danger)">&#9650;${diff.toFixed(2)}</span>`:diff<-0.005?` <span style="font-size:10px;color:var(--success)">&#9660;${Math.abs(diff).toFixed(2)}</span>`:''):'';
-      html+=`<td class="${v===min?'cheaper':'pricier'}">${v!=null?v.toFixed(2)+' &#8364;':'&mdash;'}${dH}</td>`;
+      const cont=v!=null?precoLink(p,s,v.toFixed(2)+' &#8364;')+dH:'&mdash;';
+      html+=`<td class="${v===min?'cheaper':'pricier'}">${cont}</td>`;
     });
     html+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td></tr>`;
   });
@@ -1392,7 +1460,8 @@ function renderComparacao(){
       const v=prices[s];
       const fb=hoje.find(d=>d.produto===p&&d.supermercado===s)?.is_fallback;
       const fbIcon=fb?` <span class="fallback-icon" title="Preço do dia anterior">⚠️</span>`:'';
-      html+=`<td class="${v===min?'cheaper':'pricier'}">${v!=null?v.toFixed(2).replace('.',',')+' €':'—'}${fbIcon}</td>`;
+      const cont=v!=null?precoLink(p,s,v.toFixed(2).replace('.',',')+' €')+fbIcon:'—';
+      html+=`<td class="${v===min?'cheaper':'pricier'}">${cont}</td>`;
     });
     html+=`<td>${diff!=null?diff.toFixed(2).replace('.',',')+' €':'—'}</td>`;
     html+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td></tr>`;
@@ -1445,9 +1514,9 @@ function renderPromocoes(){
 
   let html='<thead><tr><th>Produto</th><th>Supermercado</th><th>Preço</th><th>PVPR</th><th>Desconto</th><th>Poupança</th></tr></thead><tbody>';
   [...emPromo].sort((a,b)=>b.desconto_percent-a.desconto_percent).forEach(d=>{
-    html+=`<tr><td>${d.produto}</td>
+    html+=`<tr><td>${precoLink(d.produto,d.supermercado,d.produto)}</td>
       <td><span class="sup-tag sup-${d.supermercado}">${SUP_LABEL[d.supermercado]||d.supermercado}</span></td>
-      <td class="cheaper">${fmt(d.preco)}</td>
+      <td class="cheaper">${precoLink(d.produto,d.supermercado,fmt(d.preco))}</td>
       <td style="text-decoration:line-through;color:var(--muted)">${fmt(d.pvpr)}</td>
       <td style="color:var(--gold)">${fmtP(d.desconto_percent)}</td>
       <td style="color:var(--cont)">-${fmt(d.desconto_euros)}</td></tr>`;
@@ -1536,7 +1605,7 @@ function renderHistorico(){
     allSups.forEach(s=>{
       const vals=ALL.filter(d=>d.produto===p&&d.supermercado===s).map(d=>d.preco).filter(v=>v!=null);
       const min=vals.length?Math.min(...vals):null;
-      html+=`<td style="color:var(--gold)">${min!=null?min.toFixed(2).replace('.',',')+' €':'—'}</td>`;
+      html+=`<td style="color:var(--gold)">${min!=null?precoLink(p,s,min.toFixed(2).replace('.',',')+' €'):'—'}</td>`;
     });
     html+='</tr>';
   });
@@ -1607,7 +1676,8 @@ function renderOndeComprar(){
       const v=prices[s];
       const fb=hoje.find(d=>d.produto===p&&d.supermercado===s)?.is_fallback;
       const fbIcon=fb?` <span class="fallback-icon" title="Preço do dia anterior">⚠️</span>`:'';
-      html+=`<td class="${v===min?'cheaper':'pricier'}">${v!=null?v.toFixed(2).replace('.',',')+' €':'—'}${fbIcon}</td>`;
+      const cont=v!=null?precoLink(p,s,v.toFixed(2).replace('.',',')+' €')+fbIcon:'—';
+      html+=`<td class="${v===min?'cheaper':'pricier'}">${cont}</td>`;
     });
     const saving=vals.length>1?max-min:0;
     html+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td>`;
@@ -1619,6 +1689,34 @@ function renderOndeComprar(){
 loadData().catch(e=>{
   document.getElementById('loading1').innerHTML=`<p style="color:var(--danger)">Erro: ${e.message}</p>`;
 });
+
+// foto do produto ao passar o rato sobre o preco/nome
+document.addEventListener('DOMContentLoaded',function(){
+  const tip=document.getElementById('ph-tip');
+  if(!tip)return;
+  const img=tip.querySelector('img');
+  const cap=tip.querySelector('.ph-cap');
+  let cur=null;
+  function place(el){
+    const r=el.getBoundingClientRect();
+    const tw=tip.offsetWidth,th=tip.offsetHeight;
+    let x=r.left+r.width/2-tw/2;
+    let y=r.top-th-8;
+    if(y<6)y=r.bottom+8;
+    x=Math.max(6,Math.min(x,innerWidth-tw-6));
+    tip.style.left=x+'px';tip.style.top=y+'px';
+  }
+  function show(el){
+    const src=el.getAttribute('data-img');if(!src)return;
+    img.src=src;cap.textContent=el.getAttribute('data-cap')||'';
+    tip.style.display='block';place(el);cur=el;
+  }
+  function hide(){tip.style.display='none';img.src='';cur=null;}
+  document.addEventListener('mouseover',e=>{const el=e.target.closest('.ph-a[data-img]');if(el&&el!==cur)show(el);});
+  document.addEventListener('mouseout',e=>{const el=e.target.closest('.ph-a');if(el&&!el.contains(e.relatedTarget))hide();});
+  window.addEventListener('scroll',()=>{if(cur)place(cur);},true);
+});
 </script>
+<div id="ph-tip"><img alt=""><div class="ph-cap"></div></div>
 </body>
 </html>
