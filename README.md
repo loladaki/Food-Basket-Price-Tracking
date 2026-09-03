@@ -22,7 +22,7 @@ desenha os gráficos com Chart.js no browser.
 
 | Ficheiro | O que faz |
 |----------|-----------|
-| `Supabase_script_continente.py` | Continente (define a zona de entrega do Porto antes de recolher) |
+| `Supabase_script_continente.py` | Continente (catálogo nacional, sem loja fixada) |
 | `scraper_auchan.py` | Auchan |
 | `scraper_pingodoce_final.py` | Pingo Doce (usa Playwright) |
 | `scraper_combustivel.py` | Brent (yfinance) e preços PT de gasolina/gasóleo |
@@ -39,4 +39,4 @@ está indisponível).
 Os scrapers precisam da variável `DATABASE_URL` (ligação ao Supabase), definida
 nos *secrets* do repositório. O calendário está em `.github/workflows/main.yml`.
 
-Projeto pessoal, sem fins comerciais. Preços recolhidos para a zona do Porto.
+Projeto pessoal, sem fins comerciais. Preços das lojas online (catálogo nacional).
