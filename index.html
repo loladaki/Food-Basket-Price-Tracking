@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CabazAlimentarPT — preços de supermercado em Portugal</title>
+<title>CabazAlimentarPT · preços de supermercado em Portugal</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a9d6e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 8h16l-1.3 10.6a2 2 0 0 1-2 1.4H7.3a2 2 0 0 1-2-1.4Z'/%3E%3Cpath d='M8.5 8 12 3l3.5 5'/%3E%3C/svg%3E">
 <script>(function(){var s=localStorage.getItem('tema');var d=s?s==='dark':matchMedia('(prefers-color-scheme:dark)').matches;document.documentElement.setAttribute('data-theme',d?'dark':'light');})();</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -12,20 +12,24 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f6f7f8;--surface:#ffffff;--surface2:#eef0f2;--border:#e2e5e9;--border-strong:#cfd4d9;
+  --bg:#eceff3;--surface:#ffffff;--surface2:#eef0f2;--border:#e2e5e9;--border-strong:#cfd4d9;
   --text:#1a1d21;--muted:#727880;--soft:#474c53;
-  --cont:#4a9d6e;--cont-dim:rgba(74,157,110,.14);
-  --auch:#d08a52;--auch-dim:rgba(208,138,82,.14);
-  --ping:#5b83bd;--ping-dim:rgba(91,131,189,.14);
-  --gold:#b7913f;--danger:#c76b5a;--success:#4a9d6e;--accent:#7a76c2;
+  --cont:#3f9367;--cont-dim:rgba(74,157,110,.14);
+  --auch:#c9793d;--auch-dim:rgba(208,138,82,.14);
+  --ping:#4f79b8;--ping-dim:rgba(91,131,189,.14);
+  --gold:#b7913f;--danger:#c76b5a;--success:#3f9367;--accent:#7a76c2;
+  --hero-a:#e3f0e9;--hero-b:#e9eef8;--card-shadow:0 1px 2px rgba(24,34,48,.05);
+  --sidebar-bg:#f7f9fb;
 }
 [data-theme="dark"]{
-  --bg:#14161a;--surface:#1b1e24;--surface2:#242932;--border:#2b3038;--border-strong:#3a404a;
+  --bg:#121419;--surface:#1b1e24;--surface2:#242932;--border:#2b3038;--border-strong:#3a404a;
   --text:#e6e8ec;--muted:#8b929c;--soft:#b7bdc6;
   --cont:#5cb682;--cont-dim:rgba(92,182,130,.16);
   --auch:#e0a06a;--auch-dim:rgba(224,160,106,.16);
   --ping:#7ba0d8;--ping-dim:rgba(123,160,216,.16);
   --gold:#cda759;--danger:#d98a78;--success:#5cb682;--accent:#a29de0;
+  --hero-a:#1a2a23;--hero-b:#1a2130;--card-shadow:0 1px 2px rgba(0,0,0,.28);
+  --sidebar-bg:#171a1f;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
@@ -34,7 +38,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 
 .app{display:flex;align-items:flex-start}
 .sidebar{position:sticky;top:0;height:100vh;flex:none;width:236px;display:flex;flex-direction:column;gap:22px;
-  padding:20px 18px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto}
+  padding:20px 18px;background:var(--sidebar-bg);border-right:1px solid var(--border);overflow-y:auto}
 .sidebar .brand{font-weight:700;font-size:16px;letter-spacing:-.01em;color:var(--text);text-decoration:none}
 .sidebar .brand span{color:var(--muted);font-weight:500}
 .navlinks{display:flex;flex-direction:column;gap:1px}
@@ -61,15 +65,18 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .refresh-banner.visible{display:flex}
 .refresh-btn{background:var(--text);color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;font-family:inherit}
 
-.page{max-width:1660px;margin:0;padding:28px 32px;scroll-margin-top:16px}
-.page+.page{border-top:1px solid var(--border)}
+.page{max-width:1660px;margin:0;padding:28px 32px;display:none;animation:pageIn .22s ease}
+.page.active{display:block}
+@keyframes pageIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .page-header{margin-bottom:18px}
 .page-header h2{font-size:16px;font-weight:600;letter-spacing:-.01em}
 .page-header p{font-size:13px;color:var(--muted);margin-top:3px}
 
-.hero{padding:4px 0 22px;margin-bottom:20px;border-bottom:1px solid var(--border)}
-.hero-eyebrow{font-size:12px;color:var(--muted);letter-spacing:.02em;margin-bottom:12px}
-.hero-num{font-size:42px;font-weight:700;letter-spacing:-.025em;line-height:1.02;color:var(--text)}
+.hero{position:relative;overflow:hidden;padding:28px 30px;margin-bottom:22px;border-radius:16px;
+  background:linear-gradient(135deg,var(--hero-a),var(--hero-b) 65%,var(--surface));
+  border:1px solid var(--border);box-shadow:var(--card-shadow)}
+.hero-eyebrow{font-size:12px;color:var(--soft);letter-spacing:.03em;text-transform:uppercase;margin-bottom:12px;font-weight:500}
+.hero-num{font-size:46px;font-weight:700;letter-spacing:-.025em;line-height:1.02;color:var(--cont)}
 .hero-num small{font-size:24px;font-weight:600;color:var(--muted);margin-left:2px}
 .hero-lead{font-size:15px;color:var(--soft);margin-top:8px}
 .hero-lead b{color:var(--text);font-weight:600}
@@ -84,9 +91,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 .grid-65{display:grid;grid-template-columns:1.7fr 1fr;gap:14px;margin-bottom:14px}
 
-.card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:14px 16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;box-shadow:var(--card-shadow)}
 .card-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px}
-.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;box-shadow:var(--card-shadow)}
 .kpi-label{font-size:12.5px;color:var(--muted);margin-bottom:8px}
 .kpi-val{font-size:23px;font-weight:600;letter-spacing:-.02em;line-height:1}
 .kpi-badge{display:inline-block;font-size:11px;font-weight:500;margin-top:8px;color:var(--muted)}
@@ -224,7 +231,7 @@ canvas{max-height:280px}
 <main class="content">
 
 <!-- PAGE 1 -->
-<div class="page" id="p1">
+<div class="page active" id="p1">
   <div class="loading" id="loading1">
     <div class="loader-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16l-1.3 10.6a2 2 0 0 1-2 1.4H7.3a2 2 0 0 1-2-1.4Z"/><path d="M8.5 8 12 3l3.5 5"/></svg></div>
     <div class="loader-bar"><i></i></div>
@@ -270,7 +277,7 @@ canvas{max-height:280px}
     </div>
     <div class="card">
       <div style="display:flex;align-items:center;margin-bottom:10px">
-        <span class="card-title" style="margin-bottom:0">Preços de hoje — todos os produtos</span>
+        <span class="card-title" style="margin-bottom:0">Preços de hoje, todos os produtos</span>
         <button class="export-btn" onclick="exportCSV('tabela-hoje','cabaz-hoje')">⬇ CSV</button>
       </div>
       <div style="overflow-x:auto"><table class="tbl" id="tabela-hoje"></table></div>
@@ -325,7 +332,7 @@ canvas{max-height:280px}
   <div class="filter-row">
     <label>Produto:</label>
     <select id="sel-produto-hist" onchange="renderHistorico()">
-      <option value="_cabaz">— Custo total do cabaz —</option>
+      <option value="_cabaz">Custo total do cabaz</option>
     </select>
     <label>Supermercado:</label>
     <select id="sel-sup-hist" onchange="renderHistorico()">
@@ -367,15 +374,15 @@ canvas{max-height:280px}
   <div class="card" style="font-size:13px;color:var(--soft);line-height:1.65;margin-bottom:16px">
     <b>Contexto.</b> Este projeto nasceu por causa da guerra do Irão (começou a 28 de fevereiro de 2026). Temos o
     preço do petróleo e dos combustíveis desde <b>antes</b> do conflito, mas só começámos a seguir o cabaz alimentar
-    a <b>21 de março</b> — já depois de a guerra começar. Não temos, por isso, preços dos alimentos de antes da guerra:
+    a <b>21 de março</b>, já depois de a guerra começar. Não temos, por isso, preços dos alimentos de antes da guerra:
     não é possível provar se foi o conflito a fazê-los subir. O que se vê aqui é a evolução a partir desse ponto.
   </div>
   <div class="kpi-row cols-5" id="energia-kpis">
-    <div class="kpi-card"><div class="kpi-label">Brent Crude</div><div class="kpi-val" id="kpi-brent-usd">—</div><div class="kpi-badge badge-neutral" id="kpi-brent-eur">— €/barril</div></div>
-    <div class="kpi-card"><div class="kpi-label">Gasolina 95 (PT)</div><div class="kpi-val" id="kpi-gasolina">—</div><div class="kpi-badge badge-neutral">€/litro</div></div>
-    <div class="kpi-card"><div class="kpi-label">Gasóleo (PT)</div><div class="kpi-val" id="kpi-gasoleo">—</div><div class="kpi-badge badge-neutral">€/litro</div></div>
-    <div class="kpi-card"><div class="kpi-label">Correlação Brent ↔ Cabaz</div><div class="kpi-val" id="kpi-corr">—</div><div class="kpi-badge badge-neutral" id="kpi-corr-label">Pearson r</div></div>
-    <div class="kpi-card"><div class="kpi-label">Sensibilidade ao Brent</div><div class="kpi-val" id="kpi-sens">—</div><div class="kpi-badge badge-neutral" id="kpi-sens-label">por +10% no Brent</div></div>
+    <div class="kpi-card"><div class="kpi-label">Brent Crude</div><div class="kpi-val" id="kpi-brent-usd">–</div><div class="kpi-badge badge-neutral" id="kpi-brent-eur">– €/barril</div></div>
+    <div class="kpi-card"><div class="kpi-label">Gasolina 95 (PT)</div><div class="kpi-val" id="kpi-gasolina">–</div><div class="kpi-badge badge-neutral">€/litro</div></div>
+    <div class="kpi-card"><div class="kpi-label">Gasóleo (PT)</div><div class="kpi-val" id="kpi-gasoleo">–</div><div class="kpi-badge badge-neutral">€/litro</div></div>
+    <div class="kpi-card"><div class="kpi-label">Correlação Brent ↔ Cabaz</div><div class="kpi-val" id="kpi-corr">–</div><div class="kpi-badge badge-neutral" id="kpi-corr-label">Pearson r</div></div>
+    <div class="kpi-card"><div class="kpi-label">Sensibilidade ao Brent</div><div class="kpi-val" id="kpi-sens">–</div><div class="kpi-badge badge-neutral" id="kpi-sens-label">por +10% no Brent</div></div>
   </div>
   <br>
   <div class="card" style="margin-bottom:12px">
@@ -443,11 +450,11 @@ canvas{max-height:280px}
       <ul style="margin:10px 0 10px 18px">
         <li>DECO: <b>+4,8%</b> desde o início de 2026 (cerca de +11,65 €), com <b>máximo a meados de abril</b> (259,52 €).</li>
         <li>De meados de abril a final de julho, o cabaz DECO <b>desceu ~2,3%</b> (259,52 € → 253,47 €).</li>
-        <li>O nosso cabaz desceu <b>3,1%</b> desde 21 de março — a <b>mesma direção</b>: alívio dos preços no verão.</li>
+        <li>O nosso cabaz desceu <b>3,1%</b> desde 21 de março, a <b>mesma direção</b>: alívio dos preços no verão.</li>
       </ul>
       A diferença essencial: a DECO arrancou em janeiro e apanhou a subida de janeiro a abril; nós só começámos a 21 de
-      março, já perto do pico, por isso o nosso número não reflete essa subida — apenas a descida que se seguiu. Ambos os
-      estudos, ainda assim, apontam no mesmo sentido no verão. Fonte: DECO PROTESTE (valores citados na imprensa —
+      março, já perto do pico, por isso o nosso número não reflete essa subida, apenas a descida que se seguiu. Ambos os
+      estudos, ainda assim, apontam no mesmo sentido no verão. Fonte: DECO PROTESTE (valores citados na imprensa:
       Observador, CNN Portugal, Dinheiro Vivo).
     </div>
   </div>
@@ -468,8 +475,8 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 let ALL=[], FUEL=[], HOJE='', DATAS=[], CHARTS={};
 const SUP_COLOR={continente:'#4a9d6e',auchan:'#d08a52',pingodoce:'#5b83bd'};
 const SUP_LABEL={continente:'Continente',auchan:'Auchan',pingodoce:'Pingo Doce'};
-const fmt=v=>v!=null?v.toFixed(2).replace('.',',')+' €':'—';
-const fmtP=v=>v!=null?v.toFixed(1).replace('.',',')+'%':'—';
+const fmt=v=>v!=null?v.toFixed(2).replace('.',',')+' €':'–';
+const fmtP=v=>v!=null?v.toFixed(1).replace('.',',')+'%':'–';
 
 // links para a pagina de cada produto em cada supermercado
 const LINKS={
@@ -530,16 +537,27 @@ const precoLink=(produto,sup,inner)=>{
     :`<span class="ph-a"${at}>${inner}</span>`;
 };
 
-// destaca na nav a secção que está à vista
-const navObserver=new IntersectionObserver(entries=>{
-  entries.forEach(e=>{
-    if(e.isIntersecting){
-      document.querySelectorAll('.navlinks a').forEach(a=>
-        a.classList.toggle('on',a.getAttribute('href')==='#'+e.target.id));
-    }
+// navegacao por seccoes: mostra uma de cada vez (como paginas)
+function showSection(id){
+  const alvo=document.getElementById(id);
+  if(!alvo)return;
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p===alvo));
+  document.querySelectorAll('.navlinks a').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+id));
+  window.scrollTo(0,0);
+  // os graficos das seccoes escondidas ficam a 0px; ao mostrar, reajusto
+  requestAnimationFrame(()=>Object.values(CHARTS).forEach(c=>{try{c.resize();}catch(e){}}));
+}
+document.querySelectorAll('.navlinks a, .sidebar .brand').forEach(a=>{
+  a.addEventListener('click',e=>{
+    const href=a.getAttribute('href');
+    if(href&&href.startsWith('#')){e.preventDefault();showSection(href.slice(1));}
   });
-},{rootMargin:'-45% 0px -50% 0px'});
-document.querySelectorAll('.page').forEach(p=>navObserver.observe(p));
+});
+// abre na seccao do link se vier com #, senao no inicio
+window.addEventListener('DOMContentLoaded',()=>{
+  const id=(location.hash||'#p1').slice(1);
+  if(document.getElementById(id))showSection(id);
+});
 
 function checkRefresh(){
   const today=new Date().toISOString().slice(0,10);
@@ -592,10 +610,10 @@ function renderInflacao(){
     <div class="kpi-card"><div class="kpi-label">Cabaz medido (desde ${mesIni})</div>
       <div class="kpi-val" style="color:${cor(per)}">${sign(per)}</div>
       <div class="kpi-badge">anualizado ${sign(anual)}</div></div>
-    <div class="kpi-card"><div class="kpi-label">INE — inflação geral (${INE.geralMes})</div>
+    <div class="kpi-card"><div class="kpi-label">INE · inflação geral (${INE.geralMes})</div>
       <div class="kpi-val">${sign(INE.geralAtual)}</div>
       <div class="kpi-badge">homóloga, IPC total</div></div>
-    <div class="kpi-card"><div class="kpi-label">INE — alimentar (${INE.alimentarMes})</div>
+    <div class="kpi-card"><div class="kpi-label">INE · alimentar (${INE.alimentarMes})</div>
       <div class="kpi-val">${sign(INE.alimentar)}</div>
       <div class="kpi-badge">bens alimentares não transformados</div></div>`;
 
@@ -617,10 +635,10 @@ function renderInflacao(){
 
   document.getElementById('infl-nota').innerHTML=`
     <b>Como ler isto.</b> Seguimos sobretudo produtos de <b>marca branca</b> e escolhemos sempre o preço mais barato
-    entre os três supermercados, <b>com promoções incluídas</b> — e há promoções quase todas as semanas, o que explica
+    entre os três supermercados, <b>com promoções incluídas</b>, e há promoções quase todas as semanas, o que explica
     os dentes-de-serra nos gráficos. Como nem toda a gente compra marca branca, o ideal seria ter três referências por
     alimento (uma de marca branca e duas de marca) e fazer uma média ponderada; por agora é uma limitação assumida.<br><br>
-    O número cobre só estes 20 produtos e apenas desde ${mesIni} — período curto e muito sazonal (a fruta e os legumes
+    O número cobre só estes 20 produtos e apenas desde ${mesIni}, período curto e muito sazonal (a fruta e os legumes
     de verão puxam os preços para baixo), por isso pode dar negativo mesmo com a inflação oficial positiva. O INE mede o
     cabaz completo do país em variação homóloga (face ao mesmo mês do ano anterior); uma comparação justa exige um ano
     inteiro de recolha, que ainda não temos. Fontes: INE e Banco de Portugal (BPstat).`;
@@ -654,7 +672,7 @@ function setPeriodo(dias){
 
 function winnerInfo(prices){
   const vals=Object.entries(prices).filter(([,v])=>v!=null);
-  if(!vals.length)return{cls:'w-igual',lbl:'—',isTie:false};
+  if(!vals.length)return{cls:'w-igual',lbl:'–',isTie:false};
   const min=Math.min(...vals.map(([,v])=>v));
   const winners=vals.filter(([,v])=>v===min);
   if(winners.length>1)return{cls:'w-igual',lbl:'Igual',isTie:true};
@@ -946,10 +964,10 @@ function renderEnergia(){
   // Latest fuel KPIs
   const latest=FUEL.length?FUEL[FUEL.length-1]:null;
   if(latest){
-    document.getElementById('kpi-brent-usd').textContent=latest.brent_usd!=null?latest.brent_usd.toFixed(2)+' $':'—';
-    document.getElementById('kpi-brent-eur').textContent=latest.brent_eur!=null?latest.brent_eur.toFixed(2).replace('.',',')+' €/barril':'— €/barril';
-    document.getElementById('kpi-gasolina').textContent=latest.gasolina95!=null?latest.gasolina95.toFixed(3).replace('.',',')+' €':'—';
-    document.getElementById('kpi-gasoleo').textContent=latest.gasoleo!=null?latest.gasoleo.toFixed(3).replace('.',',')+' €':'—';
+    document.getElementById('kpi-brent-usd').textContent=latest.brent_usd!=null?latest.brent_usd.toFixed(2)+' $':'–';
+    document.getElementById('kpi-brent-eur').textContent=latest.brent_eur!=null?latest.brent_eur.toFixed(2).replace('.',',')+' €/barril':'– €/barril';
+    document.getElementById('kpi-gasolina').textContent=latest.gasolina95!=null?latest.gasolina95.toFixed(3).replace('.',',')+' €':'–';
+    document.getElementById('kpi-gasoleo').textContent=latest.gasoleo!=null?latest.gasoleo.toFixed(3).replace('.',',')+' €':'–';
   }
 
   // Align dates between fuel and basket
@@ -970,7 +988,7 @@ function renderEnergia(){
     corrEl.style.color=strength>0.7?'var(--danger)':strength>0.4?'var(--gold)':'var(--muted)';
     corrLabel.textContent=strength>0.7?`Forte correlação ${dir}`:strength>0.4?`Moderada ${dir}`:`Fraca ${dir}`;
   }else{
-    corrEl.textContent='—';
+    corrEl.textContent='–';
     corrLabel.textContent='Dados insuficientes';
   }
 
@@ -1075,7 +1093,7 @@ function renderEnergia(){
   FUEL.forEach(f=>{fuelMap[f.data]=f;});
 
   // Forward-fill: preços semanais propagam-se para todos os dias seguintes
-  // (fins de semana e feriados não têm linha própria na BD — Brent não negoceia)
+  // (fins de semana e feriados não têm linha própria na BD, o Brent não negoceia)
   let ffG95=null, ffGas=null;
   const gasoline95Line=allChartDates.map(d=>{
     if(fuelMap[d]?.gasolina95!=null) ffG95=fuelMap[d].gasolina95;
@@ -1116,7 +1134,7 @@ function renderEnergia(){
     });
   }else{
     document.getElementById('chart-combustivel').parentElement.innerHTML+=
-      '<p style="color:var(--muted);font-size:13px;margin-top:8px">Os preços PT de gasolina/gasóleo ainda não estão disponíveis — serão preenchidos automaticamente após o próximo scrape.</p>';
+      '<p style="color:var(--muted);font-size:13px;margin-top:8px">Os preços PT de gasolina e gasóleo ainda não estão disponíveis; vão ser preenchidos na próxima recolha.</p>';
   }
 
   // ── Chart 3: Scatter Brent vs Cabaz ───────────────────────
@@ -1201,13 +1219,13 @@ function renderEnergia(){
   const hasLag=lagCorrs.some(v=>v!=null);
   let interpHtml='';
   if(hasLag){
-    const r0=lagCorrs[0]?.toFixed(2)??'—';
-    const rBest=bestCorr?.toFixed(2)??'—';
+    const r0=lagCorrs[0]?.toFixed(2)??'–';
+    const rBest=bestCorr?.toFixed(2)??'–';
     const corrDir=bestCorr>0?'positiva':'negativa';
     const corrForce=Math.abs(bestCorr??0)>0.5?'moderada a forte':Math.abs(bestCorr??0)>0.3?'moderada':'fraca';
     interpHtml=`
       <b>Correlação instantânea (lag 0): r = ${r0}</b><br>
-      Fraca ou negativa — o Brent e o cabaz não sobem/descem em simultâneo.<br><br>
+      Fraca ou negativa: o Brent e o cabaz não sobem nem descem em simultâneo.<br><br>
       <b>Melhor correlação encontrada: r = ${rBest} com lag de ${bestLag} dias</b><br>
       Correlação ${corrForce} ${corrDir}: o Brent de há ${bestLag} dias tem a maior
       relação com o custo do cabaz de hoje.<br><br>
@@ -1230,11 +1248,11 @@ function renderEnergia(){
     if(!f)return;
     html+=`<tr>
       <td style="font-family:'DM Mono',monospace;font-size:12px">${d}</td>
-      <td>${f.brent_usd!=null?f.brent_usd.toFixed(2)+' $':'—'}</td>
-      <td>${f.brent_eur!=null?f.brent_eur.toFixed(2).replace('.',',')+' €':'—'}</td>
-      <td>${f.gasolina95!=null?f.gasolina95.toFixed(3).replace('.',',')+' €/L':'—'}</td>
-      <td>${f.gasoleo!=null?f.gasoleo.toFixed(3).replace('.',',')+' €/L':'—'}</td>
-      <td style="color:var(--accent);font-weight:600">${cab!=null?cab.toFixed(2).replace('.',',')+' €':'—'}</td>
+      <td>${f.brent_usd!=null?f.brent_usd.toFixed(2)+' $':'–'}</td>
+      <td>${f.brent_eur!=null?f.brent_eur.toFixed(2).replace('.',',')+' €':'–'}</td>
+      <td>${f.gasolina95!=null?f.gasolina95.toFixed(3).replace('.',',')+' €/L':'–'}</td>
+      <td>${f.gasoleo!=null?f.gasoleo.toFixed(3).replace('.',',')+' €/L':'–'}</td>
+      <td style="color:var(--accent);font-weight:600">${cab!=null?cab.toFixed(2).replace('.',',')+' €':'–'}</td>
     </tr>`;
   });
   document.getElementById('tabela-energia').innerHTML=html+'</tbody>';
@@ -1250,8 +1268,8 @@ function renderCobertura(){
     const dias=new Set(ALL.filter(d=>d.supermercado===s).map(d=>d.data)).size;
     return `<b style="color:${SUP_COLOR[s]}">${SUP_LABEL[s]||s}</b> ${dias} dias`;
   });
-  const ini=DATAS[0]?DATAS[0].split('-').reverse().join('/'):'—';
-  el.innerHTML=`Cobertura de dados (desde ${ini}) — ${parts.join(' · ')}.`;
+  const ini=DATAS[0]?DATAS[0].split('-').reverse().join('/'):'–';
+  el.innerHTML=`Cobertura de dados desde ${ini}: ${parts.join(' · ')}.`;
 }
 
 // abertura da pagina: numero-chave + resumo da semana em texto
@@ -1296,7 +1314,7 @@ function renderHero(){
   el.innerHTML=`
     <div class="hero-eyebrow">Cabaz de ${produtos.length} produtos essenciais · atualizado ${_d[2]}/${_d[1]}/${_d[0]}</div>
     <div class="hero-num">${eur(barato.t)}</div>
-    <div class="hero-lead">para encher o cabaz no supermercado mais barato hoje — <b>${SUP_LABEL[barato.s]||barato.s}</b>. Tudo no mais caro custaria ${eur(caro.t)}.</div>
+    <div class="hero-lead">para encher o cabaz no supermercado mais barato hoje, o <b>${SUP_LABEL[barato.s]||barato.s}</b>. Tudo no mais caro custaria ${eur(caro.t)}.</div>
     <div class="hero-week">${semana}</div>`;
 }
 
@@ -1326,7 +1344,7 @@ function renderPage1(){
     const prev=dataSP?spData.filter(d=>d.supermercado===s).reduce((a,b)=>a+(b.preco||0),0):null;
     const diff=prev?c-prev:null;
     const bc=diff===null?'badge-neutral':diff>0?'badge-up':'badge-down';
-    const bt=diff===null?'—':(diff>0?'▲ ':'▼ ')+Math.abs(diff).toFixed(2).replace('.',',')+' € vs sem. passada';
+    const bt=diff===null?'–':(diff>0?'▲ ':'▼ ')+Math.abs(diff).toFixed(2).replace('.',',')+' € vs sem. passada';
     kHtml+=`<div class="kpi-card"><div class="kpi-label">${SUP_LABEL[s]||s}</div>
       <div class="kpi-val" style="color:${SUP_COLOR[s]}">${c.toFixed(2).replace('.',',')} €</div>
       <div class="kpi-badge ${bc}">${bt}</div></div>`;
@@ -1441,7 +1459,7 @@ function renderPage1(){
       const v=prices[s];
       const fb=hoje.find(d=>d.produto===p&&d.supermercado===s)?.is_fallback;
       const fbIcon=fb?` <span class="fallback-icon" title="Preço do dia anterior">⚠️</span>`:'';
-      const cont=v!=null?precoLink(p,s,v.toFixed(2).replace('.',',')+' €')+fbIcon:'—';
+      const cont=v!=null?precoLink(p,s,v.toFixed(2).replace('.',',')+' €')+fbIcon:'–';
       rows+=`<td class="${v===min?'cheaper':'pricier'}" style="${heatBg(v,min,max)}">${cont}</td>`;
     });
     rows+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td></tr>`;
@@ -1459,7 +1477,7 @@ function renderPage1(){
   const infl=(avgHoje!=null&&avgIni)?((avgHoje-avgIni)/avgIni*100):null;
   const nPromo=hoje.filter(d=>d.desconto_euros>0).length;
   const mesIni=new Date(DATAS[0]).toLocaleDateString('pt-PT',{month:'short',year:'2-digit'});
-  const inflTxt=infl==null?'—':(infl>0?'+':'')+infl.toFixed(1).replace('.',',')+'%';
+  const inflTxt=infl==null?'–':(infl>0?'+':'')+infl.toFixed(1).replace('.',',')+'%';
   const inflCor=infl==null?'var(--muted)':infl>0.1?'var(--danger)':infl<-0.1?'var(--success)':'var(--muted)';
   document.getElementById('side-summary').innerHTML=`
     <div><div class="s-label">Mais barato hoje</div>
@@ -1587,10 +1605,10 @@ function renderComparacao(){
       const v=prices[s];
       const fb=hoje.find(d=>d.produto===p&&d.supermercado===s)?.is_fallback;
       const fbIcon=fb?` <span class="fallback-icon" title="Preço do dia anterior">⚠️</span>`:'';
-      const cont=v!=null?precoLink(p,s,v.toFixed(2).replace('.',',')+' €')+fbIcon:'—';
+      const cont=v!=null?precoLink(p,s,v.toFixed(2).replace('.',',')+' €')+fbIcon:'–';
       html+=`<td class="${v===min?'cheaper':'pricier'}">${cont}</td>`;
     });
-    html+=`<td>${diff!=null?diff.toFixed(2).replace('.',',')+' €':'—'}</td>`;
+    html+=`<td>${diff!=null?diff.toFixed(2).replace('.',',')+' €':'–'}</td>`;
     html+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td></tr>`;
   });
   document.getElementById('tabela-comp').innerHTML=html+'</tbody>';
@@ -1609,7 +1627,7 @@ function renderPromocoes(){
     <div class="kpi-card"><div class="kpi-label">Em promoção</div>
       <div class="kpi-val" style="color:var(--cont)">${emPromo.length}<span style="font-size:16px;color:var(--muted)">/${hoje.length}</span></div></div>
     <div class="kpi-card"><div class="kpi-label">Maior desconto</div>
-      <div class="kpi-val" style="color:var(--gold)">${maxDesc?maxDesc.desconto_percent.toFixed(1)+'%':'—'}</div>
+      <div class="kpi-val" style="color:var(--gold)">${maxDesc?maxDesc.desconto_percent.toFixed(1)+'%':'–'}</div>
       ${maxDesc?`<div style="font-size:11px;color:var(--muted);margin-top:4px">${maxDesc.produto.slice(0,30)}</div>`:''}</div>
     <div class="kpi-card"><div class="kpi-label">Total poupável</div>
       <div class="kpi-val" style="color:var(--accent)">${totalPoup.toFixed(2).replace('.',',')} €</div></div>`;
@@ -1732,7 +1750,7 @@ function renderHistorico(){
     allSups.forEach(s=>{
       const vals=ALL.filter(d=>d.produto===p&&d.supermercado===s).map(d=>d.preco).filter(v=>v!=null);
       const min=vals.length?Math.min(...vals):null;
-      html+=`<td style="color:var(--gold)">${min!=null?precoLink(p,s,min.toFixed(2).replace('.',',')+' €'):'—'}</td>`;
+      html+=`<td style="color:var(--gold)">${min!=null?precoLink(p,s,min.toFixed(2).replace('.',',')+' €'):'–'}</td>`;
     });
     html+='</tr>';
   });
@@ -1803,12 +1821,12 @@ function renderOndeComprar(){
       const v=prices[s];
       const fb=hoje.find(d=>d.produto===p&&d.supermercado===s)?.is_fallback;
       const fbIcon=fb?` <span class="fallback-icon" title="Preço do dia anterior">⚠️</span>`:'';
-      const cont=v!=null?precoLink(p,s,v.toFixed(2).replace('.',',')+' €')+fbIcon:'—';
+      const cont=v!=null?precoLink(p,s,v.toFixed(2).replace('.',',')+' €')+fbIcon:'–';
       html+=`<td class="${v===min?'cheaper':'pricier'}">${cont}</td>`;
     });
     const saving=vals.length>1?max-min:0;
     html+=`<td><span class="winner-badge ${w.cls}">${w.lbl}</span></td>`;
-    html+=`<td style="color:${saving>0.5?'var(--success)':'var(--muted)'}">${saving>0?'-'+saving.toFixed(2).replace('.',',')+' €':'—'}</td></tr>`;
+    html+=`<td style="color:${saving>0.5?'var(--success)':'var(--muted)'}">${saving>0?'-'+saving.toFixed(2).replace('.',',')+' €':'–'}</td></tr>`;
   });
   document.getElementById('tabela-comprar').innerHTML=html+'</tbody>';
 }

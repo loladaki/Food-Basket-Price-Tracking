@@ -1,7 +1,7 @@
 # CabazAlimentarPT
 
 Sigo todos os dias o preço de vinte produtos essenciais em três supermercados
-portugueses — Continente, Auchan e Pingo Doce — e junto-lhes o preço do petróleo
+portugueses (Continente, Auchan e Pingo Doce) e junto-lhes o preço do petróleo
 Brent e dos combustíveis, para perceber o que mexe com o custo de vida.
 
 O site está em `index.html` (uma página, sem dependências a instalar) e mostra:
@@ -11,7 +11,7 @@ O site está em `index.html` (uma página, sem dependências a instalar) e mostr
 - promoções e mínimos históricos;
 - evolução e uma previsão simples por regressão linear;
 - onde comprar cada produto mais barato;
-- combustível vs cabaz — Brent, gasolina e gasóleo lado a lado com o cabaz,
+- combustível vs cabaz: Brent, gasolina e gasóleo lado a lado com o cabaz,
   com correlação e análise por desfasamento (lag).
 
 ## Como funciona
