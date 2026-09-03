@@ -28,7 +28,7 @@ produtos = {
     "cafe": "https://www.auchan.pt/pt/alimentacao/mercearia/cafe-cha-e-infusao/cafe-saco-soluvel-e-cevadas/cafe-auchan-liofilizado-gold-intenso-100g/2955724.html",
     "cereais": "https://www.auchan.pt/pt/alimentacao/mercearia/cereais-e-barras/cereais-crianca/cereais-nestle-chocapic-375g/36138.html",
     "banana": "https://www.auchan.pt/pt/produtos-frescos/fruta/banana-e-frutos-tropicais/banana-del-monte-kg/234229.html",
-    "laranja": "https://www.auchan.pt/pt/produtos-frescos/fruta/fruta-da-epoca/laranja-algarve-igp-auchan-3kg/3467264.html",
+    "laranja": "https://www.auchan.pt/pt/produtos-frescos/fruta/laranjas-clementinas-e-limoes/laranja-2-kg/158914.html",
     "detergente": "https://www.auchan.pt/pt/limpeza-e-cuidados-do-lar/limpeza-e-tratamento-de-roupa/detergente-maquina-roupa/detergente-liquido/detergente-roupa-maquina-liquido-auchan-caraibas-37-doses/3599527.html",
 }
 

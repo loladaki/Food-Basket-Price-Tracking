@@ -11,7 +11,7 @@ import statistics
 produtos = {
     "arroz": "https://www.continente.pt/produto/arroz-carolino-continente-continente-4738050.html",
     "massa": "https://www.continente.pt/produto/massa-esparguete-pack-poupanca-continente-continente-5253941.html",
-    "leite": "https://www.continente.pt/produto/leite-uht-meio-gordo-continente-7062996.html",
+    "leite": "https://www.continente.pt/produto/leite-uht-meio-gordo-continente-8504295.html",
     "ovos": "https://www.continente.pt/produto/ovos-de-solo-classe-m-continente-continente-7284496.html",
     "frango": "https://www.continente.pt/produto/frango-completo-aos-pedacos-continente-continente-7069752.html",
     "atum": "https://www.continente.pt/produto/atum-em-azeite-continente-continente-3697794.html",
@@ -32,6 +32,11 @@ produtos = {
 }
 
 MAX_VARIACAO = 60          # % de desvio face a mediana recente a partir do qual descarto o valor
+
+# o Continente ja nao vende alguns artigos em unidade, so em pack; para estes
+# guardamos o preco por unidade (divido pelo n.º de unidades do pack) para ficar
+# comparavel com os outros supermercados. leite: pack de 6x1L -> preco por litro
+POR_UNIDADE = {"leite": 6}
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
@@ -126,6 +131,15 @@ dados = []
 for produto, url in produtos.items():
     preco, pvpr, desconto_percent, desconto_euros = get_price_info(sessao, url)
     is_fallback = False
+
+    # artigos so vendidos em pack: converter para preco por unidade
+    if produto in POR_UNIDADE and preco is not None:
+        n = POR_UNIDADE[produto]
+        preco = round(preco / n, 2)
+        if pvpr is not None:
+            pvpr = round(pvpr / n, 2)
+        if desconto_euros is not None:
+            desconto_euros = round(desconto_euros / n, 2)
 
     if preco is None:
         preco, pvpr, desconto_percent, desconto_euros = get_fallback(cursor, produto, "continente")
